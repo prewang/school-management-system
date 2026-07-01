@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     id            BIGINT       NOT NULL AUTO_INCREMENT,
     username      VARCHAR(50)  NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    real_name     VARCHAR(100) NOT NULL,
     role          VARCHAR(20)  NOT NULL COMMENT 'SUPER_ADMIN/ADMIN/TEACHER/STUDENT',
     status        TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '0=禁用,1=启用',
     create_time   DATETIME     NOT NULL,
@@ -30,8 +31,8 @@ CREATE TABLE IF NOT EXISTS student (
     user_id     BIGINT       NOT NULL,
     class_id    BIGINT       NOT NULL,
     student_no  VARCHAR(50)  NOT NULL,
-    name        VARCHAR(100) NOT NULL,
     gender      TINYINT(1)   NOT NULL DEFAULT 2 COMMENT '0=女,1=男,2=未知',
+    birth_date  DATE         NULL,
     create_time DATETIME     NOT NULL,
     update_time DATETIME     NOT NULL,
     deleted     TINYINT(1)   NOT NULL DEFAULT 0,
@@ -45,8 +46,7 @@ CREATE TABLE IF NOT EXISTS teacher (
     id          BIGINT       NOT NULL AUTO_INCREMENT,
     user_id     BIGINT       NOT NULL,
     teacher_no  VARCHAR(50)  NOT NULL,
-    name        VARCHAR(100) NOT NULL,
-    gender      TINYINT(1)   NOT NULL DEFAULT 2 COMMENT '0=女,1=男,2=未知',
+    department  VARCHAR(100) NOT NULL,
     create_time DATETIME     NOT NULL,
     update_time DATETIME     NOT NULL,
     deleted     TINYINT(1)   NOT NULL DEFAULT 0,
@@ -68,9 +68,10 @@ CREATE TABLE IF NOT EXISTS course (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS course_teacher (
-    id         BIGINT NOT NULL AUTO_INCREMENT,
-    course_id  BIGINT NOT NULL,
-    teacher_id BIGINT NOT NULL,
+    id          BIGINT   NOT NULL AUTO_INCREMENT,
+    course_id   BIGINT   NOT NULL,
+    teacher_id  BIGINT   NOT NULL,
+    create_time DATETIME NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_course_teacher (course_id, teacher_id),
     INDEX idx_ct_teacher_id (teacher_id)

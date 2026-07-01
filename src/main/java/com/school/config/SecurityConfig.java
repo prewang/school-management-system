@@ -1,6 +1,10 @@
 package com.school.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.school.common.enums.ErrorCode;
+import com.school.common.result.Result;
 import com.school.security.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +31,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -38,6 +43,26 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**", "/doc.html", "/v3/api-docs/**",
                                  "/swagger-resources/**", "/webjars/**").permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                // 未携带 Token 或 Token 无效时（Filter 层），返回 JSON 401
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write(objectMapper.writeValueAsString(
+                            Result.fail(ErrorCode.UNAUTHORIZED.getCode(),
+                                        ErrorCode.UNAUTHORIZED.getMessage())
+                    ));
+                })
+                // Filter 层 AccessDeniedException（已认证但无权限），返回 JSON 403
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write(objectMapper.writeValueAsString(
+                            Result.fail(ErrorCode.FORBIDDEN.getCode(),
+                                        ErrorCode.FORBIDDEN.getMessage())
+                    ));
+                })
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
