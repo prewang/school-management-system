@@ -46,7 +46,8 @@ public class StudentServiceImpl implements StudentService {
         }
 
         SysUser user = sysUserMapper.selectById(request.getUserId());
-        if (user == null || !Role.STUDENT.name().equals(user.getRole())) {
+        if (user == null || !Role.STUDENT.name().equals(user.getRole())
+                || !Integer.valueOf(1).equals(user.getStatus())) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "用户不存在");
         }
 
@@ -122,8 +123,14 @@ public class StudentServiceImpl implements StudentService {
         studentMapper.updateById(student);
 
         SysUser user = sysUserMapper.selectById(student.getUserId());
+        if (user == null) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "用户不存在");
+        }
         if (schoolClass == null) {
             schoolClass = schoolClassMapper.selectById(student.getClassId());
+        }
+        if (schoolClass == null) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "班级不存在");
         }
         return toStudentResponse(student, user, schoolClass);
     }
