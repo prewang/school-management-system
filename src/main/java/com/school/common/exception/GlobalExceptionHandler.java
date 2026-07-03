@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -38,6 +39,17 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining("; "));
         return Result.fail(ErrorCode.PARAM_INVALID.getCode(), message);
+    }
+
+    /**
+     * 安全网：Spring Security 的 AuthenticationException 正常由 ExceptionTranslationFilter
+     * 在 Filter 层处理；此处作为防御性兜底，防止极端情况下它到达 MVC 层后被通用 500 处理器捕获。
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Result<Void> handleAuthenticationException(AuthenticationException e) {
+        log.warn("AuthenticationException reached MVC layer: {}", e.getMessage());
+        return Result.fail(ErrorCode.UNAUTHORIZED.getCode(), ErrorCode.UNAUTHORIZED.getMessage());
     }
 
     @ExceptionHandler(AccessDeniedException.class)

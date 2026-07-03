@@ -9,8 +9,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 @Tag(name = "学生管理")
 @RestController
@@ -22,6 +24,7 @@ public class StudentController {
 
     @Operation(summary = "创建学生")
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
     public Result<StudentResponse> create(@Valid @RequestBody StudentCreateRequest request) {
         return Result.success(studentService.create(request));
@@ -35,9 +38,11 @@ public class StudentController {
 
     @Operation(summary = "分页查询学生")
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
     public Result<PageResult<StudentPageResponse>> page(@Valid PageRequest pageRequest,
-                                                        @RequestParam(required = false) Long classId) {
-        return Result.success(studentService.page(pageRequest, classId));
+                                                        @RequestParam(required = false) Long classId,
+                                                        @RequestParam(required = false) String keyword) {
+        return Result.success(studentService.page(pageRequest, classId, keyword));
     }
 
     @Operation(summary = "更新学生")

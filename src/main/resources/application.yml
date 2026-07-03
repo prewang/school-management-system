@@ -25,7 +25,9 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 jwt:
-  secret: 7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b
+  # Production: set JWT_SECRET env var to a cryptographically strong random secret (>= 32 chars).
+  # Development fallback is provided below — never use it in production.
+  secret: ${JWT_SECRET:7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b}
   access-token-expiration: 7200000
   refresh-token-expiration: 604800000
 

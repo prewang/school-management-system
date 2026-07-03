@@ -1,8 +1,6 @@
 package com.school.security;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.school.common.enums.ErrorCode;
-import com.school.common.exception.BusinessException;
 import com.school.entity.SysUser;
 import com.school.mapper.SysUserMapper;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +21,9 @@ public class CustomUserDetailsService implements UserDetailsService {
                 new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username)
         );
         if (user == null) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+            // 符合 Spring Security UserDetailsService 契约；Spring Boot 自动将此 Bean
+            // 注册到内部 AuthenticationManager，供 Spring Security 框架在需要时调用。
+            throw new UsernameNotFoundException("User not found");
         }
         return new UserPrincipal(user);
     }

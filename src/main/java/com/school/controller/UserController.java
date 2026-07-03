@@ -9,8 +9,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 @Tag(name = "用户管理")
 @RestController
@@ -22,6 +24,7 @@ public class UserController {
 
     @Operation(summary = "创建用户")
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
     public Result<UserResponse> create(@Valid @RequestBody UserCreateRequest request) {
         return Result.success(userService.create(request));
@@ -38,8 +41,9 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
     public Result<PageResult<UserPageResponse>> page(@Valid PageRequest pageRequest,
-                                                     @RequestParam(required = false) String role) {
-        return Result.success(userService.page(pageRequest, role));
+                                                     @RequestParam(required = false) String role,
+                                                     @RequestParam(required = false) String keyword) {
+        return Result.success(userService.page(pageRequest, role, keyword));
     }
 
     @Operation(summary = "更新用户")
@@ -51,9 +55,17 @@ public class UserController {
 
     @Operation(summary = "删除用户")
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
     public Result<Void> delete(@PathVariable Long id) {
         userService.delete(id);
+        return Result.success();
+    }
+
+    @Operation(summary = "修改自己的密码")
+    @PutMapping("/me/password")
+    @PreAuthorize("isAuthenticated()")
+    public Result<Void> updatePassword(@Valid @RequestBody PasswordUpdateRequest request) {
+        userService.updatePassword(request);
         return Result.success();
     }
 }

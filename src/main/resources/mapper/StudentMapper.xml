@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.school.mapper.StudentMapper">
+
+    <sql id="studentJoinFrom">
+        FROM student s
+        INNER JOIN sys_user u ON s.user_id = u.id AND u.deleted = 0
+        INNER JOIN `class` c ON s.class_id = c.id AND c.deleted = 0
+        WHERE s.deleted = 0
+    </sql>
+
+    <select id="selectStudentPage" resultType="com.school.mapper.row.StudentListRow">
+        SELECT
+            s.id,
+            s.student_no,
+            u.real_name AS realName,
+            s.gender,
+            s.class_id,
+            c.name AS className
+        <include refid="studentJoinFrom"/>
+        <if test="classId != null">
+            AND s.class_id = #{classId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND u.real_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        ORDER BY s.id DESC
+    </select>
+
+    <select id="selectStudentDetailById" resultType="com.school.mapper.row.StudentDetailRow">
+        SELECT
+            s.id,
+            s.user_id,
+            s.student_no,
+            u.real_name AS realName,
+            s.gender,
+            s.birth_date,
+            s.class_id,
+            c.name AS className,
+            s.create_time
+        <include refid="studentJoinFrom"/>
+        AND s.id = #{id}
+    </select>
+
+</mapper>

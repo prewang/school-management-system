@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDate;
+
 @Data
 @EqualsAndHashCode(callSuper = true)
 @TableName("student")
@@ -15,8 +17,8 @@ public class Student extends BaseEntity {
 
     private String studentNo;
 
-    private String name;
-
     /** 0=女，1=男，2=未知 */
     private Integer gender;
+
+    private LocalDate birthDate;
 }

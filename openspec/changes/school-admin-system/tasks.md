@@ -4,7 +4,7 @@
 - [ ] 1.2 配置 `application.yml`：数据源（MySQL 8）、MyBatis-Plus、日志级别
 - [ ] 1.3 创建分层目录结构：`controller/`、`service/`、`mapper/`、`entity/`、`dto/`、`security/`、`common/`、`config/`
 - [ ] 1.4 添加 Knife4j（Swagger）依赖并完成基础配置，验证 `/doc.html` 可访问
-- [ ] 1.5 配置 MyBatis-Plus 分页插件与逻辑删除全局配置（`logic-delete-field: deleted`，`logic-delete-value: 1`，`logic-not-delete-value: 0`）
+- [ ] 1.5 配置 MyBatis-Plus 分页插件与逻辑删除全局配置（`logic-delete-field: deleted`，`logic-delete-value: 1`，`logic-not-delete-value: 0`）；引入 `mybatis-plus-jsqlparser` 并注册 `PaginationInnerInterceptor`（见 design 决策 13）
 - [ ] 1.6 实现 `MetaObjectHandler`，自动填充 `create_time`（INSERT）和 `update_time`（INSERT_UPDATE）
 - [ ] 1.7 定义 `BaseEntity`（含 id、createTime、updateTime、deleted），所有 Entity 类继承
 - [ ] 1.8 定义 `common/result/PageResult<T>` 和 `common/request/PageRequest`，供所有分页接口复用
@@ -27,7 +27,8 @@
 - [ ] 3.3 实现 `UserDetailsServiceImpl`，根据 username 加载用户信息
 - [ ] 3.4 实现 `JwtAuthenticationFilter`：拦截请求，验证 Token，将认证信息写入 SecurityContext
 - [ ] 3.5 配置 `SecurityConfig`：关闭 CSRF、配置白名单（/api/auth/**、/doc.html）、启用方法级注解 `@EnableMethodSecurity`
-- [ ] 3.6 实现 `AuthController`：`POST /api/auth/login`、`POST /api/auth/refresh`、`POST /api/auth/logout`
+- [x] 3.6 实现 `AuthController`：`POST /api/auth/login`、`POST /api/auth/refresh`、`POST /api/auth/logout`
+- [x] A-4 修复未认证场景 JSON 响应：`JwtAuthenticationFilter` 按异常类型写定制化 401；`GlobalExceptionHandler` 补充 `AuthenticationException` 安全网处理器；`SecurityConfig` 注释更新分工说明
 - [ ] 3.7 实现 `AuthService`：登录逻辑（查用户 → 验密 → 颁发 Token）
 - [ ] 3.8 创建统一响应体 `Result<T>` 和全局异常处理器 `GlobalExceptionHandler`（处理 AuthenticationException、AccessDeniedException、MethodArgumentNotValidException）
 - [ ] 3.9 配置 CORS 全局允许前端域名访问
@@ -37,9 +38,9 @@
 - [ ] 4.1 创建 `UserController`（路径 `/api/users`），添加 `@PreAuthorize("hasRole('ADMIN')")` 限制
 - [ ] 4.2 实现 `GET /api/users`：分页查询用户，支持 role、keyword 过滤
 - [ ] 4.3 实现 `POST /api/users`：创建用户，用户名唯一性校验，密码 BCrypt 加密
-- [ ] 4.4 实现 `PUT /api/users/{id}`：更新用户信息（real_name、role、status）
-- [ ] 4.5 实现 `DELETE /api/users/{id}`：逻辑删除，禁止删除当前登录账号
-- [ ] 4.6 实现 `PUT /api/users/password`：用户修改自己密码（旧密码验证）
+- [ ] 4.4 实现 `PUT /api/users/{id}`：更新用户信息（realName、role、status），三字段全部必填（全量 PUT，非 PATCH）
+- [ ] 4.5 实现 `DELETE /api/users/{id}`：逻辑删除，禁止删除当前登录账号（已知限制：软删除后 username 仍占用 UNIQUE 约束，该用户名永久不可复用；MVP 阶段可接受）
+- [ ] 4.6 实现 `PUT /api/users/me/password`：用户修改自己密码（旧密码验证），`@PreAuthorize("isAuthenticated()")` 覆盖 Controller 级 ADMIN 限制
 
 ## 5. 班级管理（class-management）
 
@@ -61,12 +62,15 @@
 
 ## 7. 学生管理（student-management）
 
-- [ ] 7.1 创建 `StudentEntity`、`StudentMapper`、`StudentService`
-- [ ] 7.2 实现 `GET /api/students`：分页查询学生，支持 classId、keyword 过滤
-- [ ] 7.3 实现 `POST /api/students`：创建学生档案，学号唯一性校验，关联 user_id 和 class_id
-- [ ] 7.4 实现 `GET /api/students/{id}`：查询学生详情；学生角色只能查自己（Service 层权限校验）
-- [ ] 7.5 实现 `PUT /api/students/{id}`：更新学生班级等信息（管理员）
-- [ ] 7.6 实现 `DELETE /api/students/{id}`：逻辑删除
+> **依赖说明**：`classId` 校验仅需 `SchoolClassMapper`（已存在）；E2E 联调造班级数据建议先完成 **5.3**（`POST /api/classes`）或手工插入 `class` 表。骨架类（`Student`、`StudentMapper`、`StudentService`、`StudentController`）已存在，7.0 起为对齐 Spec 与实现业务逻辑。
+
+- [x] 7.0 对齐 Student Entity/DTO 与 Spec：Entity 去 `name`、补 `birthDate`；Create/Update/Response/PageResponse 字段对齐决策 12；`StudentService.page` 增加 `keyword` 参数；Controller `GET /students` 增加 `keyword` 参数
+- [x] 7.1 编写 `StudentMapper.xml`：分页列表与详情 JOIN `sys_user`（取 `real_name`）与 `class`（取 `name` 为 `className`）；`keyword` 过滤 `real_name`
+- [x] 7.2 实现 `GET /api/students`：分页查询；`classId`、`keyword` 过滤；返回 `realName`、`className`；仅 `ADMIN`/`SUPER_ADMIN`；`@Transactional(readOnly = true)`
+- [x] 7.3 实现 `POST /api/students`：HTTP 201；学号唯一（40005「学号已存在」）；`user_id` 存在且 `role=STUDENT`（否则 40004「用户不存在」）；一用户一档案（40005「该用户已有学生档案」）；`class_id` 存在（40004「班级不存在」）；`@Transactional`
+- [x] 7.4 实现 `GET /api/students/{id}`：详情含决策 12 字段；管理员/教师可查任意；学生仅查自己（Service 层校验，他人 403）；`@Transactional(readOnly = true)`
+- [x] 7.5 实现 `PUT /api/students/{id}`：部分更新 `classId`/`gender`/`birthDate`；至少一个字段；`classId` 存在性校验；`@Transactional`
+- [x] 7.6 实现 `DELETE /api/students/{id}`：逻辑删除；有 `grade` 关联则 40006「该学生存在成绩记录，无法删除」；`@Transactional`
 
 ## 8. 课程管理（course-management）
 

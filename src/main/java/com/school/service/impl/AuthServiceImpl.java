@@ -7,9 +7,13 @@ import com.school.dto.auth.LoginRequest;
 import com.school.dto.auth.TokenResponse;
 import com.school.entity.SysUser;
 import com.school.mapper.SysUserMapper;
+import com.school.security.JwtUtil;
+import com.school.security.UserPrincipal;
 import com.school.service.AuthService;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +24,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final SysUserMapper sysUserMapper;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
     @Override
     public TokenResponse login(LoginRequest request) {
@@ -47,8 +52,25 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "用户名或密码错误");
         }
 
-        // JWT 生成及 TokenResponse 构造将在 Task A-2 实现
-        throw new UnsupportedOperationException("TODO: JWT generation pending Task A-2");
+        // Step 4: 颁发 Token
+        String accessToken  = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getId(), user.getUsername(), user.getRole());
+
+        return TokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .role(user.getRole())
+                .build();
+    }
+
+    @Override
+    public void logout() {
+        // 无状态 JWT 设计：服务端不维护 Token 状态，登出由客户端清除本地 Token 完成。
+        // 此处仅记录 userId 供审计日志使用；生产环境可在此处将 jti 写入 Redis 黑名单。
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof UserPrincipal principal) {
+            log.info("User logged out: userId={}", principal.getId());
+        }
     }
 
     /**
@@ -64,6 +86,34 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public TokenResponse refresh(String refreshToken) {
-        throw new UnsupportedOperationException("TODO");
+        // Step 1: 解析 Token，同时完成签名验证与过期校验
+        Claims claims = jwtUtil.parseTokenSafely(refreshToken);
+        if (claims == null) {
+            // Token 过期或非法，日志已由 parseTokenSafely 记录，不重复记录 Token 明文
+            log.warn("Token refresh failed [INVALID_OR_EXPIRED_TOKEN]");
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+
+        // Step 2: 校验 tokenType 必须为 refresh，拒绝 Access Token 被误用于此接口
+        String tokenType = claims.get(JwtUtil.CLAIM_TOKEN_TYPE, String.class);
+        if (!JwtUtil.TOKEN_TYPE_REFRESH.equals(tokenType)) {
+            log.warn("Token refresh failed [WRONG_TOKEN_TYPE]: tokenType={}", tokenType);
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+
+        // Step 3: 从 Claims 提取身份信息
+        Long userId   = claims.get("userId", Long.class);
+        String username = claims.getSubject();
+        String role   = claims.get("role", String.class);
+
+        // Step 4: 颁发新 Access Token（Spec 仅要求返回 Access Token，不做 Token Rotation）
+        String newAccessToken = jwtUtil.generateAccessToken(userId, username, role);
+
+        log.info("Token refreshed: userId={}", userId);
+
+        return TokenResponse.builder()
+                .accessToken(newAccessToken)
+                .role(role)
+                .build();
     }
 }

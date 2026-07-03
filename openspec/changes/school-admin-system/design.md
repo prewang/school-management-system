@@ -120,7 +120,7 @@
 
 ```
 sys_user      ← 所有角色的登录账号（username、password_hash、real_name、role、status）
-student       ← 学生档案（student_no、gender、birth_date），关联 sys_user.id（1:1）、class.id（N:1）
+student       ← 学生档案（student_no、gender、birth_date），关联 sys_user.id（1:1）、class.id（N:1）；**不冗余存储姓名**，展示时 JOIN `sys_user.real_name`
 teacher       ← 教师档案（teacher_no、department），关联 sys_user.id（1:1）
 class         ← 班级（name、grade、year）
 course        ← 课程（name、code、credit）
@@ -290,7 +290,7 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 | 模块 | 路径前缀 | 主要接口 |
 |------|----------|---------|
 | 认证 | `/api/auth` | `POST /api/auth/login`、`POST /api/auth/refresh`、`POST /api/auth/logout` |
-| 用户管理 | `/api/users` | `GET /api/users`、`POST /api/users`、`PUT /api/users/{id}`、`DELETE /api/users/{id}`、`PUT /api/users/password` |
+| 用户管理 | `/api/users` | `GET /api/users`、`POST /api/users`、`PUT /api/users/{id}`、`DELETE /api/users/{id}`、`PUT /api/users/me/password` |
 | 学生管理 | `/api/students` | `GET /api/students`、`POST /api/students`、`GET /api/students/{id}`、`PUT /api/students/{id}`、`DELETE /api/students/{id}` |
 | 教师管理 | `/api/teachers` | `GET /api/teachers`、`POST /api/teachers`、`GET /api/teachers/{id}`、`PUT /api/teachers/{id}`、`DELETE /api/teachers/{id}` |
 | 班级管理 | `/api/classes` | `GET /api/classes`、`POST /api/classes`、`GET /api/classes/{id}`、`PUT /api/classes/{id}`、`DELETE /api/classes/{id}` |
@@ -304,6 +304,44 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 - **HTTP 状态码约定**：所有**创建**接口（POST）返回 HTTP **201**（`@ResponseStatus(HttpStatus.CREATED)`）；查询、更新、删除接口返回 HTTP 200；错误统一由 `GlobalExceptionHandler` 处理
 
 **理由**：集中配置比在每个 Controller 上手写 `/api/xxx` 更安全，前缀变更时只需改一处。
+
+---
+
+### 决策 12：学生管理模块约定
+
+**学生姓名来源**：
+- `student` 表不存储姓名字段；列表与详情中的 `realName` 通过 JOIN `sys_user.real_name` 获取。
+- 列表 `keyword` 参数对 `sys_user.real_name` 做模糊匹配，不匹配 `username`。
+
+**创建校验**：
+- `user_id` 须存在、未软删除、且 `role = STUDENT`；否则统一对外返回 40004「用户不存在」（防止用户枚举）。
+- `class_id` 须对应未删除的班级；否则返回 40004「班级不存在」。
+- 一用户一档案：重复创建返回 40005「该用户已有学生档案」。
+
+**更新语义**：
+- `PUT /api/students/{id}` 采用**部分更新**（仅更新请求体中非 null 字段），与 `PUT /api/users/{id}` 的全量 PUT 语义**刻意区分**。
+- 可更新字段：`classId`、`gender`、`birthDate`；至少传入一个，否则 40000。
+
+**删除约束**：
+- 删除学生前检查 `grade` 表是否存在关联记录；有则返回 40006「该学生存在成绩记录，无法删除」（与课程/教师删除约束一致）。
+
+**跨模块依赖**：
+- 实现 `classId` 校验仅需 `SchoolClassMapper.selectById`（班级 Entity/Mapper 已存在），**不硬依赖** class-management 5.2–5.6 完成。
+- E2E 联调造班级测试数据时，建议先完成 class-management 5.3（`POST /api/classes`）或手工插入 `class` 表。
+
+**响应字段**：
+- `StudentResponse`：`id, userId, studentNo, realName, gender, birthDate, classId, className, createTime`
+- `StudentPageResponse`：`id, studentNo, realName, gender, classId, className`
+
+---
+
+### 决策 13：MyBatis-Plus 3.5.9 分页依赖
+
+自 MyBatis-Plus 3.5.9 起，分页插件拆分为独立模块，项目须同时引入：
+- `mybatis-plus-spring-boot3-starter`
+- `mybatis-plus-jsqlparser`（版本与 starter 一致）
+
+`MyBatisPlusConfig` 中须注册 `PaginationInnerInterceptor(DbType.MYSQL)`，否则自定义 XML 分页查询不会追加 `LIMIT`。
 
 ## Risks / Trade-offs
 
@@ -329,3 +367,6 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 - 前端是否与后端同仓库（mono-repo）还是独立仓库？（建议新手放同一仓库，`frontend/` 子目录）
 - ~~是否需要分页查询的默认页大小约定？~~ → 已解决，见决策 9：默认 10 条/页，上限 100 条
 - ~~成绩是否允许同一学生同一课程多次录入（重修场景）？~~ → 已解决：MVP 阶段 `grade` 表加 `UNIQUE(student_id, course_id, semester)` 约束，重修场景后续可扩展
+- ~~学生姓名存储与 keyword 匹配字段？~~ → 已解决，见决策 12：JOIN `sys_user.real_name`，student 表不存 name
+- ~~删除学生是否检查成绩关联？~~ → 已解决，见决策 12：有成绩则 40006 拒绝删除
+- ~~学生 PUT 全量还是部分更新？~~ → 已解决，见决策 12：部分更新，与 user-management 全量 PUT 区分

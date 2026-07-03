@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 public class UserResponse {
     private Long id;
     private String username;
+    private String realName;
     private String role;
     private Integer status;
     private LocalDateTime createTime;
