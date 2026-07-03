@@ -1,0 +1,49 @@
+---
+description: 分层架构、DTO 命名与隔离、事务声明约定
+globs: src/main/java/**/*.java
+alwaysApply: false
+---
+
+# Architecture Rules
+
+## 分层职责
+
+| 层 | 职责 | 禁止 |
+|----|------|------|
+| Controller | 接收参数、返回结果 | 业务逻辑、直接调用 Mapper |
+| Service | 业务逻辑、事务管理 | 直接操作 HTTP 请求/响应 |
+| Mapper | 数据库访问 | 返回 DTO、调用 Service |
+| Entity | 持久化映射 | 暴露到 API 层 |
+| DTO | 接口交互 | 包含业务逻辑 |
+
+Security 基础设施（`SecurityConfig`、`JwtAuthenticationFilter`、`UserDetailsServiceImpl`）**只能依赖 Mapper，禁止依赖业务 Service**，避免循环依赖。
+
+## 事务声明
+
+```java
+// ✅ 查询方法
+@Transactional(readOnly = true)
+public StudentResponse getById(Long id) { ... }
+
+// ✅ 写操作
+@Transactional
+public StudentResponse create(StudentCreateRequest req) { ... }
+```
+
+事务注解只在 **Service 实现类**上声明，Controller 和 Mapper 不加事务。
+
+## DTO 命名与隔离
+
+- 命名模式：`XxxCreateRequest` / `XxxUpdateRequest` / `XxxResponse` / `XxxPageResponse`
+- Request 与 Response **禁止复用同一个类**
+- Controller **禁止返回 Entity**
+- Response DTO **禁止包含**以下字段：
+  `password` / `passwordHash` / `salt` / `tokenSecret` / `refreshToken`（Spec 明确要求除外，须在 Planning Block 注明）/ `Authorization` / `Cookie`
+
+```java
+// ❌ 禁止
+public Student getStudent(Long id) { ... }
+
+// ✅ 正确
+public StudentResponse getStudent(Long id) { ... }
+```

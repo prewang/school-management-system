@@ -1,0 +1,48 @@
+---
+description: 安全约束：密码加密、JWT、日志脱敏、敏感字段管控
+globs: src/main/java/**/*.java
+alwaysApply: false
+---
+
+# Security Rules
+
+## 密码
+
+```java
+// ❌ 禁止明文或弱哈希
+user.setPassword(rawPassword);
+
+// ✅ 必须使用 BCryptPasswordEncoder
+user.setPassword(passwordEncoder.encode(rawPassword));
+```
+
+## JWT & Secret
+
+- JWT Secret **必须**来自配置文件或环境变量，禁止硬编码。
+- Refresh Token **禁止**通过 URL Query Parameter 传递。
+
+```yaml
+# ✅ application.yml
+jwt:
+  secret: ${JWT_SECRET}
+```
+
+## 日志脱敏
+
+以下字段**禁止出现在任何 log 语句中**（包括 DEBUG 级别）：
+
+`password` / `passwordHash` / `token` / `Authorization` header 值 / `Cookie` 值 / 手机号 / 身份证号
+
+```java
+// ❌ 禁止
+log.debug("login request: {}", loginRequest);  // loginRequest 含 password
+
+// ✅ 只记录安全字段
+log.debug("login attempt for username: {}", loginRequest.getUsername());
+```
+
+## 通用禁止项
+
+- 禁止硬编码任何密钥、Token、密码。
+- 禁止关闭 TLS 验证、CSP、或 Spring Security 的 CSRF 保护（需要关闭时必须在 Planning Block 中注明原因并获得确认）。
+- 所有外部输入视为不可信，必须经过 Bean Validation 或手动校验后再使用。

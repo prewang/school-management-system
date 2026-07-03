@@ -1,0 +1,29 @@
+---
+description: Task 完成、编译通过后必须执行的 Review Checklist，作为完成门禁
+alwaysApply: true
+---
+
+# Review Checklist
+
+Task 完成、编译通过后，必须逐项输出 ✅ / ❌ / ⚠️，存在 ❌ 时禁止声称 Task 已完成。
+
+**Spec**
+- [ ] 实现与当前 Task 的 Spec 接口路径、响应字段一致（对照 Planning Block 中的 Spec 路径）
+- [ ] Planning Block 的 Spec 冲突字段已处理（见 planning.mdc）
+
+**Code**（对照 architecture.mdc）
+- [ ] 无 Entity 外漏、无 Mapper 返回 DTO
+- [ ] 事务注解与 Planning Block 事务要求一致
+- [ ] DTO 命名符合规范，Request/Response 未混用
+
+**Security**（对照 security.mdc）
+- [ ] 无硬编码密钥；无敏感字段出现在日志中
+- [ ] 新增接口已在 SecurityConfig 中明确配置访问权限
+
+## 风险分级标准
+
+| 级别 | 判断标准 | 处理要求 |
+|------|---------|---------|
+| High | 认证/授权绕过、数据泄露、注入漏洞、编译错误 | 必须修复，修复前禁止声称完成 |
+| Medium | 架构违规（如 Entity 外漏）、缺少事务注解 | 当前 Task 内修复 |
+| Low | 命名不规范、冗余代码 | 记录，可进入 Backlog |

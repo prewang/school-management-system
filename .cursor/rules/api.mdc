@@ -1,0 +1,62 @@
+---
+description: API 响应规范、参数校验、异常处理约定
+globs: src/main/java/**/*Controller.java,src/main/java/**/*Request.java,src/main/java/**/*Exception*.java
+alwaysApply: false
+---
+
+# API Rules
+
+## 响应规范
+
+- 所有接口返回 `Result<T>`，禁止直接返回裸 Entity 或裸 DTO。
+- HTTP 状态码：
+
+| 操作 | 状态码 |
+|------|--------|
+| POST 创建资源 | **201**（Spec 另行规定除外） |
+| PUT 更新（保持幂等） | 200 |
+| DELETE | 遵循 Spec 规定 |
+
+```java
+// ✅
+@PostMapping
+@ResponseStatus(HttpStatus.CREATED)
+public Result<StudentResponse> create(@Valid @RequestBody StudentCreateRequest req) {
+    return Result.success(studentService.create(req));
+}
+```
+
+## 参数校验
+
+- Controller 入参统一加 `@Valid`。
+- DTO 使用 Bean Validation 注解（`@NotBlank`、`@NotNull`、`@Size` 等）。
+- 校验失败由 `GlobalExceptionHandler` 统一处理，**Controller 不捕获校验异常**。
+
+```java
+// ✅ DTO
+public class StudentCreateRequest {
+    @NotBlank
+    private String name;
+
+    @NotNull
+    @Min(1)
+    private Integer age;
+}
+```
+
+## 异常处理
+
+- Service 层统一抛出 `BusinessException`。
+- `GlobalExceptionHandler` 统一转换为响应，Controller **禁止** try-catch 业务异常。
+
+```java
+// ❌ 禁止
+try {
+    studentService.create(req);
+} catch (BusinessException e) {
+    return Result.fail(e.getMessage());
+}
+
+// ✅ 直接调用，异常交 GlobalExceptionHandler
+return Result.success(studentService.create(req));
+```

@@ -1,0 +1,39 @@
+---
+description: 实现任何功能前必须输出 Planning Block，未完成 Planning Block 禁止生成实现代码
+alwaysApply: true
+---
+
+# Planning Rules
+
+实现任何 Task 前，必须先输出完整的 Planning Block。**缺少任意一项，禁止开始实现。**
+
+## 必填格式
+
+```planning
+修改类:     [类名列表，含包路径简写]
+禁止修改:   [类名列表，或"无"]
+新增类:     [类名列表，或"无"]
+事务要求:   [方法名 → @Transactional / @Transactional(readOnly=true)]
+新增 DTO:   [RequestDTO 名, ResponseDTO 名，或"无"]
+需要 XML:   [是（原因）/ 否]
+Spec 冲突:  [冲突描述，或"无"]
+```
+
+## 判断规则
+
+- **需要 XML** → 仅限多表 JOIN 或复杂动态 SQL；单表查询填"否"。
+- **Spec 冲突** → 存在冲突时必须描述冲突内容，**未确认冲突不得开始实现**。
+- **新增 DTO** → Request 与 Response 必须分开命名，不得复用。
+
+## 示例
+
+```planning
+修改类:     StudentService, StudentController, StudentMapper
+禁止修改:   SecurityConfig, JwtAuthenticationFilter
+新增类:     无
+事务要求:   StudentService.listStudents → @Transactional(readOnly=true)
+            StudentService.createStudent → @Transactional
+新增 DTO:   StudentCreateRequest, StudentResponse
+需要 XML:   否
+Spec 冲突:  无
+```

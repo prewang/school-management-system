@@ -1,0 +1,19 @@
+---
+description: 每个 Task 完成后必须执行编译验证，禁止在编译失败时声称 Task 已完成
+alwaysApply: true
+---
+
+# Compile Rule
+
+每个 Task 的所有类完成后，必须执行：
+
+```bash
+mvn compile -q
+```
+
+## 要求
+
+- 编译必须通过（exit code 0）
+- 禁止引入新的编译错误
+- Warning 以不阻塞编译为准；若引入 `unchecked` / `deprecation` warning，须在回复中注明原因
+- 编译失败时，**禁止声称 Task 已完成**，必须修复后重新编译确认

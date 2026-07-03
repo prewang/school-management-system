@@ -1,0 +1,45 @@
+---
+description: MyBatis-Plus 数据库访问约定：LambdaQueryWrapper 优先，禁止 SQL 注入风险写法
+globs: src/main/java/**/*Mapper.java,src/main/java/**/*Service*.java
+alwaysApply: false
+---
+
+# Database Access Rules
+
+## 查询方式选择
+
+| 场景 | 方式 |
+|------|------|
+| 单表 CRUD | `LambdaQueryWrapper` / MyBatis-Plus 内置方法 |
+| 多表 JOIN、复杂动态 SQL | Mapper XML |
+| 简单单表查询 | **禁止** 写 XML |
+
+## 禁止项
+
+```java
+// ❌ SQL 注入风险 — 禁止 ${} 拼接
+@Select("SELECT * FROM user WHERE name = ${name}")
+
+// ❌ 单表查询不得写 XML
+<select id="findById">SELECT * FROM student WHERE id = #{id}</select>
+
+// ❌ Mapper 禁止直接返回 DTO
+List<StudentResponse> selectStudentDTOs();
+```
+
+## 正确示例
+
+```java
+// ✅ 单表用 LambdaQueryWrapper
+lambdaQuery().eq(Student::getId, id).one();
+
+// ✅ 多表才用 XML，且只用 #{} 占位
+<select id="selectWithCourse" resultMap="StudentCourseResult">
+  SELECT s.*, c.name AS course_name
+  FROM student s LEFT JOIN course c ON s.id = c.student_id
+  WHERE s.id = #{id}
+</select>
+
+// ✅ Mapper 返回 Entity 或基本类型，由 Service 转 DTO
+Student selectById(Long id);
+```
