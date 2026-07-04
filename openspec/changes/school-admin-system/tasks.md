@@ -53,16 +53,19 @@
 
 ## 6. 教师管理（teacher-management）
 
-- [x] 6.1 创建 `TeacherEntity`、`TeacherMapper`、`TeacherService`
-- [ ] 6.2 实现 `GET /api/teachers`：分页查询教师，支持 department、keyword 过滤
-- [ ] 6.3 实现 `POST /api/teachers`：创建教师档案，工号唯一性校验，关联 user_id
-- [ ] 6.4 实现 `GET /api/teachers/{id}`：查询教师详情，含关联课程列表
-- [ ] 6.5 实现 `PUT /api/teachers/{id}`：更新教师院系等信息
-- [ ] 6.6 实现 `DELETE /api/teachers/{id}`：逻辑删除，有关联课程时拒绝
+> **依赖说明**：创建档案前须先完成 **4.3**（`POST /api/users`，`role=TEACHER`）。`courseNames` 查询与删除校验仅需 `CourseTeacherMapper`（已存在）；E2E 联调造课程关联建议先完成 **8.6**（`POST /api/courses/{id}/teachers`）或手工插入 `course_teacher` 表。骨架类（`Teacher`、`TeacherMapper`、`TeacherService`、`TeacherController`）已存在，6.0 起为对齐 Spec 与决策 14 并实现业务逻辑。
+
+- [x] 6.0 对齐 Teacher Entity/DTO 与 Spec：Entity 去 `name`/`gender`、补 `department`；Create/Update/Response/PageResponse 字段对齐决策 14；`TeacherService.page` 增加 `department`/`keyword` 参数；Controller 路由壳
+- [x] 6.1 编写 `TeacherMapper.xml`：分页列表与详情 JOIN `sys_user`（取 `real_name`）；`department` 精确匹配、`keyword` 模糊匹配 `real_name`（不匹配 `username`）；详情 `courseNames` 子查询；`countByTeacherNo`/`countByUserId`（含已软删行）
+- [x] 6.2 实现 `GET /api/teachers`：分页查询；`department`、`keyword` 过滤；返回 `realName`；仅 `ADMIN`/`SUPER_ADMIN`；`@Transactional(readOnly = true)`
+- [x] 6.3 实现 `POST /api/teachers`：HTTP 201；工号唯一含已删行（40005「工号已存在」）；`user_id` 存在、未删、已启用且 `role=TEACHER`（否则 40004「用户不存在」）；一用户一档案（40005「该用户已有教师档案」）；`@Transactional`
+- [x] 6.4 实现 `GET /api/teachers/{id}`：详情含决策 14 字段；`courseNames` 无关联时返回 `[]`；`ADMIN`/`SUPER_ADMIN` 查任意；教师仅查自己（Service 层校验，他人 403）；`@Transactional(readOnly = true)`
+- [x] 6.5 实现 `PUT /api/teachers/{id}`：部分更新 `department`（必填非 null）；仅 `ADMIN`/`SUPER_ADMIN`；`@Transactional`
+- [x] 6.6 实现 `DELETE /api/teachers/{id}`：逻辑删除；有 `course_teacher` 关联则 40006「该教师仍有关联课程，请先移除课程关联」；软删后工号/`user_id` 不可复用；`@Transactional`
 
 ## 7. 学生管理（student-management）
 
-> **依赖说明**：`classId` 校验仅需 `SchoolClassMapper`（已存在）；E2E 联调造班级数据建议先完成 **5.3**（`POST /api/classes`）或手工插入 `class` 表。骨架类（`Student`、`StudentMapper`、`StudentService`、`StudentController`）已存在，7.0 起为对齐 Spec 与实现业务逻辑。
+> **依赖说明**：`classId` 校验仅需 `SchoolClassMapper`（已存在）；E2E 联调造班级数据建议先完成 **5.3**（`POST /api/classes`）或手工插入 `class` 表。骨架类（`Student`、`StudentMapper`、`StudentService`、`StudentController`）已存在，7.0 起为对齐 Spec 与决策 12 并实现业务逻辑。
 
 - [x] 7.0 对齐 Student Entity/DTO 与 Spec：Entity 去 `name`、补 `birthDate`；Create/Update/Response/PageResponse 字段对齐决策 12；`StudentService.page` 增加 `keyword` 参数；Controller `GET /students` 增加 `keyword` 参数
 - [x] 7.1 编写 `StudentMapper.xml`：分页列表与详情 JOIN `sys_user`（取 `real_name`）与 `class`（取 `name` 为 `className`）；`keyword` 过滤 `real_name`
@@ -95,6 +98,6 @@
 
 - [ ] 10.1 为所有 Controller 接口补充 Knife4j 注解（`@Operation`、`@Tag`），验证 `/doc.html` 文档完整
 - [ ] 10.2 用 Postman 或 Knife4j 逐一测试认证流程：登录 → 获取 Token → 访问受保护接口 → Token 过期 → 刷新
-- [ ] 10.3 验证角色权限边界：学生无法访问管理接口，教师无法操作他人课程成绩
-- [ ] 10.4 验证所有业务校验（重复学号、删除有关联数据的记录等）均返回正确错误码
+- [ ] 10.3 验证角色权限边界：学生无法访问管理接口；教师无法操作他人课程成绩；教师无法调用教师列表/创建/更新/删除接口；教师无法查看他人教师详情（403）
+- [ ] 10.4 验证所有业务校验均返回正确错误码：重复学号/工号（40005）、删除有关联数据（40006，含学生成绩与教师课程关联）、禁用用户创建档案（40004「用户不存在」）、教师 `courseNames` 无关联时返回 `[]`
 - [ ] 10.5 搭建 Vue 3 + Element Plus 前端基础框架，实现登录页与路由守卫（验证前后端联调）

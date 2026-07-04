@@ -13,8 +13,5 @@ public class Teacher extends BaseEntity {
 
     private String teacherNo;
 
-    private String name;
-
-    /** 0=女，1=男，2=未知 */
-    private Integer gender;
+    private String department;
 }

@@ -1,9 +1,9 @@
-package com.school.dto.teacher;
+package com.school.mapper.row;
 
 import lombok.Data;
 
 @Data
-public class TeacherPageResponse {
+public class TeacherListRow {
     private Long id;
     private String teacherNo;
     private String realName;

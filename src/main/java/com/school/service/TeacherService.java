@@ -10,7 +10,7 @@ import com.school.dto.teacher.TeacherUpdateRequest;
 public interface TeacherService {
     TeacherResponse create(TeacherCreateRequest request);
     TeacherResponse getById(Long id);
-    PageResult<TeacherPageResponse> page(PageRequest pageRequest);
+    PageResult<TeacherPageResponse> page(PageRequest pageRequest, String department, String keyword);
     TeacherResponse update(Long id, TeacherUpdateRequest request);
     void delete(Long id);
 }

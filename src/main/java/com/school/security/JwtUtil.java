@@ -84,11 +84,7 @@ public class JwtUtil {
                 .getPayload();
     }
 
-    public String getUsernameFromToken(String token) {
-        return parseToken(token).getSubject();
-    }
-
-    public boolean validateToken(String token) {
+    public boolean isValidToken(String token) {
         return parseTokenSafely(token) != null;
     }
 }

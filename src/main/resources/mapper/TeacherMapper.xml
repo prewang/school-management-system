@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.school.mapper.TeacherMapper">
+
+    <sql id="teacherJoinFrom">
+        FROM teacher t
+        INNER JOIN sys_user u ON t.user_id = u.id AND u.deleted = 0
+        WHERE t.deleted = 0
+    </sql>
+
+    <select id="selectTeacherPage" resultType="com.school.mapper.row.TeacherListRow">
+        SELECT
+            t.id,
+            t.teacher_no,
+            u.real_name AS realName,
+            t.department
+        <include refid="teacherJoinFrom"/>
+        <if test="department != null and department != ''">
+            AND t.department = #{department}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND u.real_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        ORDER BY t.id DESC
+    </select>
+
+    <select id="selectTeacherDetailById" resultType="com.school.mapper.row.TeacherDetailRow">
+        SELECT
+            t.id,
+            t.user_id,
+            t.teacher_no,
+            u.real_name AS realName,
+            t.department,
+            t.create_time
+        <include refid="teacherJoinFrom"/>
+        AND t.id = #{id}
+    </select>
+
+    <select id="selectCourseNamesByTeacherId" resultType="java.lang.String">
+        SELECT c.name
+        FROM course_teacher ct
+        INNER JOIN course c ON ct.course_id = c.id AND c.deleted = 0
+        WHERE ct.teacher_id = #{teacherId}
+        ORDER BY c.id
+    </select>
+
+    <select id="countByTeacherNo" resultType="int">
+        SELECT COUNT(1) FROM teacher WHERE teacher_no = #{teacherNo}
+    </select>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(1) FROM teacher WHERE user_id = #{userId}
+    </select>
+
+</mapper>

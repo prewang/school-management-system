@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.school.common.enums.ErrorCode;
+import com.school.common.enums.Role;
 import com.school.common.exception.BusinessException;
 import com.school.common.request.PageRequest;
 import com.school.common.result.PageResult;
@@ -20,6 +21,7 @@ import com.school.mapper.SysUserMapper;
 import com.school.mapper.TeacherMapper;
 import com.school.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -88,16 +90,12 @@ public class UserServiceImpl implements UserService {
         if (user == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
-
-        Integer status = request.getStatus();
-        if (status != 0 && status != 1) {
-            throw new BusinessException(ErrorCode.PARAM_INVALID, "状态值非法，仅允许 0（禁用）或 1（启用）");
-        }
+        assertCanManageUser(user);
 
         // MVP：仅更新 sys_user，不联动 teacher/student 档案（角色变更时档案数据保留）
         user.setRealName(request.getRealName());
         user.setRole(request.getRole());
-        user.setStatus(status);
+        user.setStatus(request.getStatus());
         sysUserMapper.updateById(user);
 
         return toUserResponse(user);
@@ -110,6 +108,7 @@ public class UserServiceImpl implements UserService {
         if (user == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
+        assertCanManageUser(user);
 
         Long currentUserId = currentUserId();
         if (id != null && id.equals(currentUserId)) {
@@ -173,6 +172,10 @@ public class UserServiceImpl implements UserService {
     }
 
     private Long currentUserId() {
+        return currentPrincipal().getId();
+    }
+
+    private UserPrincipal currentPrincipal() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
@@ -180,6 +183,23 @@ public class UserServiceImpl implements UserService {
         if (!(authentication.getPrincipal() instanceof UserPrincipal principal)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-        return principal.getId();
+        return principal;
+    }
+
+    /**
+     * 仅 SUPER_ADMIN 可操作 SUPER_ADMIN 账号；ADMIN 不得修改或删除 SUPER_ADMIN。
+     */
+    private void assertCanManageUser(SysUser target) {
+        if (!Role.SUPER_ADMIN.name().equals(target.getRole())) {
+            return;
+        }
+        if (!hasRole(currentPrincipal(), Role.SUPER_ADMIN)) {
+            throw new AccessDeniedException("无权操作超级管理员账号");
+        }
+    }
+
+    private boolean hasRole(UserPrincipal principal, Role role) {
+        return principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_" + role.name()));
     }
 }

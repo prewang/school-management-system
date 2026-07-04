@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +23,7 @@ public class TeacherController {
 
     @Operation(summary = "创建教师")
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
     public Result<TeacherResponse> create(@Valid @RequestBody TeacherCreateRequest request) {
         return Result.success(teacherService.create(request));
@@ -35,8 +37,11 @@ public class TeacherController {
 
     @Operation(summary = "分页查询教师")
     @GetMapping
-    public Result<PageResult<TeacherPageResponse>> page(@Valid PageRequest pageRequest) {
-        return Result.success(teacherService.page(pageRequest));
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
+    public Result<PageResult<TeacherPageResponse>> page(@Valid PageRequest pageRequest,
+                                                        @RequestParam(required = false) String department,
+                                                        @RequestParam(required = false) String keyword) {
+        return Result.success(teacherService.page(pageRequest, department, keyword));
     }
 
     @Operation(summary = "更新教师")

@@ -292,7 +292,7 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 | 认证 | `/api/auth` | `POST /api/auth/login`、`POST /api/auth/refresh`、`POST /api/auth/logout` |
 | 用户管理 | `/api/users` | `GET /api/users`、`POST /api/users`、`PUT /api/users/{id}`、`DELETE /api/users/{id}`、`PUT /api/users/me/password` |
 | 学生管理 | `/api/students` | `GET /api/students`、`POST /api/students`、`GET /api/students/{id}`、`PUT /api/students/{id}`、`DELETE /api/students/{id}` |
-| 教师管理 | `/api/teachers` | `GET /api/teachers`、`POST /api/teachers`、`GET /api/teachers/{id}`、`PUT /api/teachers/{id}`、`DELETE /api/teachers/{id}` |
+| 教师管理 | `/api/teachers` | `GET /api/teachers`、`POST /api/teachers`、`GET /api/teachers/{id}`（详情：管理员查任意，教师仅查自己，见决策 14）、`PUT /api/teachers/{id}`、`DELETE /api/teachers/{id}` |
 | 班级管理 | `/api/classes` | `GET /api/classes`、`POST /api/classes`、`GET /api/classes/{id}`、`PUT /api/classes/{id}`、`DELETE /api/classes/{id}` |
 | 课程管理 | `/api/courses` | `GET /api/courses`、`GET /api/courses/my`、`POST /api/courses`、`PUT /api/courses/{id}`、`DELETE /api/courses/{id}`、`POST /api/courses/{id}/teachers`、`DELETE /api/courses/{id}/teachers/{teacherId}` |
 | 成绩管理 | `/api/grades` | `GET /api/grades`、`GET /api/grades/my`、`POST /api/grades`、`PUT /api/grades/{id}` |
@@ -335,6 +335,42 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 
 ---
 
+### 决策 14：教师管理模块约定
+
+**权限范围**：
+- 列表、创建、更新、删除接口：仅 `ADMIN` / `SUPER_ADMIN`（Controller 层 `@PreAuthorize`），与 user-management、student-management 一致。
+- 详情接口：Controller 层不设角色限制；`ADMIN` / `SUPER_ADMIN` 可查任意教师，教师仅可查自己（Service 层校验 `teacher.user_id` 与当前用户 ID，他人返回 403）。
+
+**教师姓名来源**：
+- `teacher` 表不存储姓名字段；列表与详情中的 `realName` 通过 JOIN `sys_user.real_name` 获取。
+- 列表 `keyword` 参数对 `sys_user.real_name` 做模糊匹配，不匹配 `username`。
+
+**创建校验**：
+- `user_id` 须存在、未软删除、已启用（`status = 1`）、且 `role = TEACHER`；否则统一对外返回 40004「用户不存在」（防止用户枚举）。
+- 工号全局唯一：重复（含已软删除档案占用的工号）返回 40005「工号已存在」。
+- 一用户一档案：重复创建返回 40005「该用户已有教师档案」。
+
+**软删除与唯一约束**：
+- `teacher_no`、`user_id` 的数据库 UNIQUE 约束不区分 `deleted` 状态；MVP 阶段软删除后工号与用户均不可复用（`countByTeacherNo` / `countByUserId` 统计含已删行），与 user-management 用户名策略一致。
+
+**更新语义**：
+- `PUT /api/teachers/{id}` 采用**部分更新**（当前 MVP 仅 `department` 一个可更新字段），与 `PUT /api/users/{id}` 的全量 PUT 语义刻意区分。
+- `department` 须为非 null；教师角色调用本接口返回 403。
+
+**删除约束**：
+- 删除教师前检查 `course_teacher` 表是否存在关联记录；有则返回 40006「该教师仍有关联课程，请先移除课程关联」。
+
+**跨模块依赖**：
+- 详情 `courseNames` 与删除校验仅需 `course` / `course_teacher` 表及对应 Mapper（已存在），**不硬依赖** course-management 8.2–8.8 完成。
+- E2E 联调造课程关联数据时，建议先完成 course-management 8.6（`POST /api/courses/{id}/teachers`）或手工插入 `course_teacher` 表。
+- 创建教师档案前须先通过 user-management 创建 `role = TEACHER` 的账号（`POST /api/users`）。
+
+**响应字段**：
+- `TeacherResponse`：`id, userId, teacherNo, realName, department, courseNames, createTime`（`courseNames` 无关联时返回 `[]`，不省略字段）
+- `TeacherPageResponse`：`id, teacherNo, realName, department`
+
+---
+
 ### 决策 13：MyBatis-Plus 3.5.9 分页依赖
 
 自 MyBatis-Plus 3.5.9 起，分页插件拆分为独立模块，项目须同时引入：
@@ -370,3 +406,4 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 - ~~学生姓名存储与 keyword 匹配字段？~~ → 已解决，见决策 12：JOIN `sys_user.real_name`，student 表不存 name
 - ~~删除学生是否检查成绩关联？~~ → 已解决，见决策 12：有成绩则 40006 拒绝删除
 - ~~学生 PUT 全量还是部分更新？~~ → 已解决，见决策 12：部分更新，与 user-management 全量 PUT 区分
+- ~~教师管理权限、keyword 匹配、软删除复用、courseNames 空值语义？~~ → 已解决，见决策 14

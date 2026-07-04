@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -27,6 +28,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
 
     @Override
+    @Transactional(readOnly = true)
     public TokenResponse login(LoginRequest request) {
         // Step 1: 查询用户
         SysUser user = sysUserMapper.selectOne(
@@ -85,6 +87,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public TokenResponse refresh(String refreshToken) {
         // Step 1: 解析 Token，同时完成签名验证与过期校验
         Claims claims = jwtUtil.parseTokenSafely(refreshToken);
@@ -101,19 +104,26 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "登录已过期，请重新登录");
         }
 
-        // Step 3: 从 Claims 提取身份信息
-        Long userId   = claims.get("userId", Long.class);
-        String username = claims.getSubject();
-        String role   = claims.get("role", String.class);
+        // Step 3: 从 Claims 提取 userId，并校验用户仍存在且账号可用（逻辑删除由 MP 自动过滤）
+        Long userId = claims.get("userId", Long.class);
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null) {
+            log.warn("Token refresh failed [USER_NOT_FOUND]: userId={}", userId);
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        if (!Integer.valueOf(1).equals(user.getStatus())) {
+            log.warn("Token refresh failed [ACCOUNT_DISABLED]: userId={}", userId);
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED, "账号已被禁用");
+        }
 
-        // Step 4: 颁发新 Access Token（Spec 仅要求返回 Access Token，不做 Token Rotation）
-        String newAccessToken = jwtUtil.generateAccessToken(userId, username, role);
+        // Step 4: 颁发新 Access Token（使用 DB 最新角色，Spec 仅要求返回 Access Token，不做 Token Rotation）
+        String newAccessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
 
         log.info("Token refreshed: userId={}", userId);
 
         return TokenResponse.builder()
                 .accessToken(newAccessToken)
-                .role(role)
+                .role(user.getRole())
                 .build();
     }
 }

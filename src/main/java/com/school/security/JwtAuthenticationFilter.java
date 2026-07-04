@@ -42,29 +42,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Token 存在时，直接调用 parseToken() 并按异常类型返回定制化 401，
-        // 使客户端能区分"过期（可刷新）"与"无效（需重新登录）"两种情况。
+        // Token 存在时解析并校验；对外统一返回 40101 标准消息，详细原因仅写日志。
         Claims claims;
         try {
             claims = jwtUtil.parseToken(token);
         } catch (ExpiredJwtException e) {
             log.warn("JWT expired: sub={}", e.getClaims().getSubject());
-            writeUnauthorized(response, "Token 已过期，请使用 Refresh Token 刷新或重新登录");
+            writeUnauthorized(response);
             return;
         } catch (JwtException e) {
             log.warn("Invalid JWT: {}", e.getMessage());
-            writeUnauthorized(response, "Token 无效，请重新登录");
+            writeUnauthorized(response);
             return;
         } catch (Exception e) {
             log.warn("JWT parse error: {}", e.getMessage());
-            writeUnauthorized(response, ErrorCode.UNAUTHORIZED.getMessage());
+            writeUnauthorized(response);
             return;
         }
 
-        // H-2: 仅接受 Access Token，拒绝 Refresh Token 访问受保护接口
+        // 仅接受 Access Token，拒绝 Refresh Token 访问受保护接口
         if (!JwtUtil.TOKEN_TYPE_ACCESS.equals(claims.get(JwtUtil.CLAIM_TOKEN_TYPE))) {
             log.warn("Wrong token type used as Bearer: type={}", claims.get(JwtUtil.CLAIM_TOKEN_TYPE));
-            writeUnauthorized(response, "Token 类型错误，请使用 Access Token");
+            writeUnauthorized(response);
             return;
         }
 
@@ -86,12 +85,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 
-    private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {
+    private void writeUnauthorized(HttpServletResponse response) throws IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8");
         response.getWriter().write(
                 objectMapper.writeValueAsString(
-                        Result.fail(ErrorCode.UNAUTHORIZED.getCode(), message)
+                        Result.fail(ErrorCode.UNAUTHORIZED.getCode(), ErrorCode.UNAUTHORIZED.getMessage())
                 )
         );
     }

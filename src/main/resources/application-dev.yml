@@ -1,0 +1,4 @@
+# 开发环境：开启 MyBatis SQL 日志（禁止在生产 profile 使用 StdOutImpl）
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
