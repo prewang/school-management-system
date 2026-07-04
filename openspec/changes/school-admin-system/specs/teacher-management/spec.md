@@ -49,6 +49,7 @@
 ### Requirement: 查询教师详情
 管理员（ADMIN / SUPER_ADMIN）SHALL 能查询单个教师的详细档案。
 教师 SHALL 只能查询自己的档案（`teacher.user_id` 等于当前登录用户 ID）。
+详情接口权限与存在性判定：**资源不存在** → 40004；**资源存在但非本人**（仅教师角色）→ 403。
 详情响应 SHALL 包含：`id`、`userId`、`teacherNo`、`realName`、`department`、`courseNames`（课程名称列表，无关联时返回空数组 `[]`）、`createTime`。
 
 #### Scenario: 管理员查看任意教师详情
@@ -63,8 +64,12 @@
 - **WHEN** 教师请求非本人的教师详情
 - **THEN** 系统返回 HTTP 403
 
+#### Scenario: 教师尚无档案时查询详情
+- **WHEN** 教师账号尚未创建教师档案，调用 `GET /api/teachers/{id}`
+- **THEN** 若 `id` 对应他人档案，返回 HTTP 403；若 `id` 不存在或已删除，返回 HTTP 400，错误码 40004，消息 "资源不存在"（与管理员查询不存在资源的行为一致，**不**单独返回 403 伪装为「无权访问」）
+
 #### Scenario: 教师档案不存在
-- **WHEN** 请求不存在或已删除的教师 ID
+- **WHEN** 管理员或教师请求不存在或已删除的教师 ID
 - **THEN** 系统返回 HTTP 400，错误码 40004，消息 "资源不存在"
 
 ---
@@ -87,11 +92,34 @@
 ### Requirement: 删除教师档案
 管理员（ADMIN / SUPER_ADMIN）SHALL 能软删除教师档案。
 系统 SHALL 在删除前检查该教师是否仍有关联课程（`course_teacher` 表），若有则拒绝删除。
+删除教师档案 **SHALL NOT** 级联软删除关联的 `sys_user` 账号；账号注销由 user-management 模块的 `DELETE /api/users/{id}` 单独处理（与学生档案删除策略一致）。
 
 #### Scenario: 删除无课程关联的教师
 - **WHEN** 管理员删除没有关联课程的教师档案
-- **THEN** 系统逻辑删除，返回 HTTP 200
+- **THEN** 系统仅逻辑删除 `teacher` 表记录，`sys_user` 保持不变，返回 HTTP 200
 
 #### Scenario: 删除有课程关联的教师
 - **WHEN** 管理员删除仍关联课程的教师档案
 - **THEN** 系统返回 HTTP 400，错误码 40006，消息 "该教师仍有关联课程，请先移除课程关联"
+
+---
+
+### Requirement: 模块验收与自动化测试
+系统 SHALL 满足教师模块在 `tasks.md` §10.3、§10.4 中列出的角色权限与业务校验验收项。
+MVP 阶段 **SHALL** 支持通过 Knife4j 或 Postman 完成手工验收；**SHOULD** 补充 `TeacherServiceImpl` 单元测试（`@SpringBootTest` 或纯 Mockito），覆盖以下核心路径：
+
+| 路径 | 验收点 |
+|------|--------|
+| 创建 | 工号重复 40005、用户无效/禁用 40004、一用户一档案 40005、成功 201 |
+| 列表 | 非管理员（教师/学生）403 |
+| 详情 | 管理员查任意 200、教师查自己 200、教师查他人 403、不存在 40004 |
+| 更新 | 教师调用 PUT 403 |
+| 删除 | 有 `course_teacher` 关联 40006、无关联 200；不级联删除 `sys_user` |
+
+#### Scenario: 手工验收通过
+- **WHEN** 按 `tasks.md` §10.3、§10.4 逐项执行教师模块用例
+- **THEN** 角色边界与错误码均符合本 Spec 约定
+
+#### Scenario: 单元测试覆盖核心校验
+- **WHEN** 运行 `TeacherServiceImpl` 相关单元测试
+- **THEN** 上表所列核心路径均有对应测试用例且通过

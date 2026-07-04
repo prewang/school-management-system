@@ -340,6 +340,7 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 **权限范围**：
 - 列表、创建、更新、删除接口：仅 `ADMIN` / `SUPER_ADMIN`（Controller 层 `@PreAuthorize`），与 user-management、student-management 一致。
 - 详情接口：Controller 层不设角色限制；`ADMIN` / `SUPER_ADMIN` 可查任意教师，教师仅可查自己（Service 层校验 `teacher.user_id` 与当前用户 ID，他人返回 403）。
+- 详情存在性判定：**资源不存在或已删除** → 40004「资源不存在」；**资源存在但非本人**（仅教师角色）→ 403。不以 403 伪装资源不存在（防止 ID 枚举）。
 
 **教师姓名来源**：
 - `teacher` 表不存储姓名字段；列表与详情中的 `realName` 通过 JOIN `sys_user.real_name` 获取。
@@ -359,6 +360,11 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 
 **删除约束**：
 - 删除教师前检查 `course_teacher` 表是否存在关联记录；有则返回 40006「该教师仍有关联课程，请先移除课程关联」。
+- 仅逻辑删除 `teacher` 表记录，**不级联**软删除关联的 `sys_user`；账号注销由 user-management `DELETE /api/users/{id}` 单独处理（与学生档案删除策略一致）。
+
+**验收与测试**：
+- MVP 阶段须满足 `tasks.md` §10.3、§10.4 教师模块手工验收项。
+- **建议**补充 `TeacherServiceImpl` 单元测试（Mockito 或 `@SpringBootTest`），覆盖：创建校验（40004/40005）、列表/更新非管理员 403、详情权限（200/403/40004）、删除关联校验（40006）及不级联 `sys_user`。
 
 **跨模块依赖**：
 - 详情 `courseNames` 与删除校验仅需 `course` / `course_teacher` 表及对应 Mapper（已存在），**不硬依赖** course-management 8.2–8.8 完成。
@@ -407,3 +413,4 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 - ~~删除学生是否检查成绩关联？~~ → 已解决，见决策 12：有成绩则 40006 拒绝删除
 - ~~学生 PUT 全量还是部分更新？~~ → 已解决，见决策 12：部分更新，与 user-management 全量 PUT 区分
 - ~~教师管理权限、keyword 匹配、软删除复用、courseNames 空值语义？~~ → 已解决，见决策 14
+- ~~删除教师是否级联 sys_user？详情 403 vs 40004？模块测试 scope？~~ → 已解决，见决策 14（删除不级联、详情存在性判定、验收与测试）

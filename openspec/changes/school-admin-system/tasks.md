@@ -59,9 +59,10 @@
 - [x] 6.1 编写 `TeacherMapper.xml`：分页列表与详情 JOIN `sys_user`（取 `real_name`）；`department` 精确匹配、`keyword` 模糊匹配 `real_name`（不匹配 `username`）；详情 `courseNames` 子查询；`countByTeacherNo`/`countByUserId`（含已软删行）
 - [x] 6.2 实现 `GET /api/teachers`：分页查询；`department`、`keyword` 过滤；返回 `realName`；仅 `ADMIN`/`SUPER_ADMIN`；`@Transactional(readOnly = true)`
 - [x] 6.3 实现 `POST /api/teachers`：HTTP 201；工号唯一含已删行（40005「工号已存在」）；`user_id` 存在、未删、已启用且 `role=TEACHER`（否则 40004「用户不存在」）；一用户一档案（40005「该用户已有教师档案」）；`@Transactional`
-- [x] 6.4 实现 `GET /api/teachers/{id}`：详情含决策 14 字段；`courseNames` 无关联时返回 `[]`；`ADMIN`/`SUPER_ADMIN` 查任意；教师仅查自己（Service 层校验，他人 403）；`@Transactional(readOnly = true)`
+- [x] 6.4 实现 `GET /api/teachers/{id}`：详情含决策 14 字段；`courseNames` 无关联时返回 `[]`；`ADMIN`/`SUPER_ADMIN` 查任意；教师仅查自己（Service 层校验，他人 403）；不存在/已删除 → 40004（不以 403 伪装）；`@Transactional(readOnly = true)`
 - [x] 6.5 实现 `PUT /api/teachers/{id}`：部分更新 `department`（必填非 null）；仅 `ADMIN`/`SUPER_ADMIN`；`@Transactional`
-- [x] 6.6 实现 `DELETE /api/teachers/{id}`：逻辑删除；有 `course_teacher` 关联则 40006「该教师仍有关联课程，请先移除课程关联」；软删后工号/`user_id` 不可复用；`@Transactional`
+- [x] 6.6 实现 `DELETE /api/teachers/{id}`：仅逻辑删除 `teacher` 行，**不级联** `sys_user`；有 `course_teacher` 关联则 40006；软删后工号/`user_id` 不可复用；`@Transactional`
+- [ ] 6.7 补充 `TeacherServiceImpl` 单元测试：覆盖创建（40004/40005）、列表/更新 403、详情（200/403/40004）、删除（40006、不级联 `sys_user`）；见 spec「模块验收与自动化测试」
 
 ## 7. 学生管理（student-management）
 
