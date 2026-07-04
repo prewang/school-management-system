@@ -17,4 +17,10 @@ public interface StudentMapper extends BaseMapper<Student> {
                                             @Param("keyword") String keyword);
 
     StudentDetailRow selectStudentDetailById(@Param("id") Long id);
+
+    /** Counts all rows including soft-deleted (DB unique key is not scoped by deleted). */
+    int countByStudentNo(@Param("studentNo") String studentNo);
+
+    /** Counts all rows including soft-deleted (DB unique key is not scoped by deleted). */
+    int countByUserId(@Param("userId") Long userId);
 }

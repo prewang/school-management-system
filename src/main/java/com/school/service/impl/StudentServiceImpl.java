@@ -39,9 +39,7 @@ public class StudentServiceImpl implements StudentService {
     @Override
     @Transactional
     public StudentResponse create(StudentCreateRequest request) {
-        boolean studentNoExists = studentMapper.exists(
-                new LambdaQueryWrapper<Student>().eq(Student::getStudentNo, request.getStudentNo()));
-        if (studentNoExists) {
+        if (studentMapper.countByStudentNo(request.getStudentNo()) > 0) {
             throw new BusinessException(ErrorCode.DATA_DUPLICATE, "学号已存在");
         }
 
@@ -51,9 +49,7 @@ public class StudentServiceImpl implements StudentService {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "用户不存在");
         }
 
-        boolean profileExists = studentMapper.exists(
-                new LambdaQueryWrapper<Student>().eq(Student::getUserId, request.getUserId()));
-        if (profileExists) {
+        if (studentMapper.countByUserId(request.getUserId()) > 0) {
             throw new BusinessException(ErrorCode.DATA_DUPLICATE, "该用户已有学生档案");
         }
 

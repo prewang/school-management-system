@@ -42,4 +42,12 @@
         AND s.id = #{id}
     </select>
 
+    <select id="countByStudentNo" resultType="int">
+        SELECT COUNT(1) FROM student WHERE student_no = #{studentNo}
+    </select>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(1) FROM student WHERE user_id = #{userId}
+    </select>
+
 </mapper>
