@@ -21,7 +21,7 @@
 - `student-management`: 学生档案（基本信息、所属班级）的增删改查
 - `teacher-management`: 教师档案（工号、所属院系）的增删改查；姓名 JOIN `sys_user.real_name`；管理员（ADMIN / SUPER_ADMIN）全权维护，教师仅可查看本人详情（含 `courseNames`）；创建依赖 user-management 先建 TEACHER 账号；软删除后工号不可复用；实现约定见 design 决策 14
 - `class-management`: 班级的增删改查，班级与学生的关联管理
-- `course-management`: 课程信息的增删改查，课程与教师的分配管理
+- `course-management`: 课程 CRUD 与教师分配；管理员查全部列表、教师查 `/my`；MVP 无课程详情接口；实现约定见 design 决策 15
 - `grade-management`: 成绩录入（教师）、成绩查询（学生查自己、管理员查全部）
 
 ### Modified Capabilities

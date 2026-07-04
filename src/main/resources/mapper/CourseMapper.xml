@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.school.mapper.CourseMapper">
+
+    <select id="countByCode" resultType="int">
+        SELECT COUNT(1) FROM course WHERE code = #{code}
+    </select>
+
+    <select id="selectCoursePage" resultType="com.school.mapper.row.CourseListRow">
+        SELECT
+            c.id,
+            c.name,
+            c.code,
+            c.credit
+        FROM course c
+        WHERE c.deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND c.name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        ORDER BY c.id DESC
+    </select>
+
+    <select id="selectMyCoursePage" resultType="com.school.mapper.row.CourseListRow">
+        SELECT
+            c.id,
+            c.name,
+            c.code,
+            c.credit
+        FROM course c
+        INNER JOIN course_teacher ct ON ct.course_id = c.id AND ct.teacher_id = #{teacherId}
+        WHERE c.deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND c.name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        ORDER BY c.id DESC
+    </select>
+
+    <select id="selectTeacherNamesByCourseIds" resultType="com.school.mapper.row.CourseTeacherNameRow">
+        SELECT
+            ct.course_id AS courseId,
+            u.real_name AS teacherName
+        FROM course_teacher ct
+        INNER JOIN teacher t ON ct.teacher_id = t.id AND t.deleted = 0
+        INNER JOIN sys_user u ON t.user_id = u.id AND u.deleted = 0
+        WHERE ct.course_id IN
+        <foreach collection="courseIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY ct.course_id, t.id ASC
+    </select>
+
+</mapper>

@@ -62,7 +62,7 @@
 - [x] 6.4 实现 `GET /api/teachers/{id}`：详情含决策 14 字段；`courseNames` 无关联时返回 `[]`；`ADMIN`/`SUPER_ADMIN` 查任意；教师仅查自己（Service 层校验，他人 403）；不存在/已删除 → 40004（不以 403 伪装）；`@Transactional(readOnly = true)`
 - [x] 6.5 实现 `PUT /api/teachers/{id}`：部分更新 `department`（必填非 null）；仅 `ADMIN`/`SUPER_ADMIN`；`@Transactional`
 - [x] 6.6 实现 `DELETE /api/teachers/{id}`：仅逻辑删除 `teacher` 行，**不级联** `sys_user`；有 `course_teacher` 关联则 40006；软删后工号/`user_id` 不可复用；`@Transactional`
-- [ ] 6.7 补充 `TeacherServiceImpl` 单元测试：覆盖创建（40004/40005）、列表/更新 403、详情（200/403/40004）、删除（40006、不级联 `sys_user`）；见 spec「模块验收与自动化测试」
+- [x] 6.7 补充 `TeacherServiceImpl` 单元测试：覆盖创建（40004/40005）、列表/更新 403、详情（200/403/40004）、删除（40006、不级联 `sys_user`）；见 spec「模块验收与自动化测试」
 
 ## 7. 学生管理（student-management）
 
@@ -78,14 +78,18 @@
 
 ## 8. 课程管理（course-management）
 
-- [x] 8.1 创建 `CourseEntity`、`CourseTeacherEntity`、`CourseMapper`、`CourseTeacherMapper`
-- [ ] 8.2 实现 `GET /api/courses`：查询课程列表，含关联教师姓名
-- [ ] 8.3 实现 `GET /api/courses/my`：教师查询自己的课程（Spring Security 获取当前用户 teacher_id）
-- [ ] 8.4 实现 `POST /api/courses`：创建课程，课程代码唯一性校验
-- [ ] 8.5 实现 `PUT /api/courses/{id}`：更新课程信息
-- [ ] 8.6 实现 `POST /api/courses/{id}/teachers`：分配课程教师（幂等处理）
-- [ ] 8.7 实现 `DELETE /api/courses/{id}/teachers/{teacherId}`：移除课程教师关联，有成绩时拒绝
-- [ ] 8.8 实现 `DELETE /api/courses/{id}`：逻辑删除，有成绩时拒绝
+> **依赖说明**：分配教师须有效 `teacher` 档案（§6 已完成）；移除/删除校验仅需 `GradeMapper`（§9.1 已存在），不硬依赖 §9.2–9.5。E2E 验证 40006 可手工插 `grade` 或待 §9.2 联调。骨架类已存在，8.0 起对齐 Spec 与决策 15。
+
+- [x] 8.1 创建 `CourseEntity`、`CourseTeacherEntity`、`CourseMapper`、`CourseTeacherMapper`（仅 Entity/Mapper，不含 Spec 对齐）
+- [x] 8.0 对齐 course-management 与 Spec/决策 15：`CourseTeacher` 补 `createTime`；`CoursePageResponse` 补 `teacherNames`；新增 `CourseTeacherAssignRequest`；`CourseService`/Controller 补 `/my`、`/{id}/teachers` 路由；`POST` 加 201；**移除** `GET /courses/{id}`；列表加 `keyword` 与权限注解
+- [x] 8.2 实现 `GET /api/courses`：分页；`keyword` 过滤 `course.name`；返回 `teacherNames`（按 `teacher.id` 升序）；仅 `ADMIN`/`SUPER_ADMIN`；`CourseMapper.xml` JOIN 教师姓名；`@Transactional(readOnly = true)`
+- [x] 8.3 实现 `GET /api/courses/my`：教师查本人课程；返回 `PageResult<CoursePageResponse>`（含全量 `teacherNames`）；支持 `keyword`；非教师 403；`@Transactional(readOnly = true)`
+- [x] 8.4 实现 `POST /api/courses`：HTTP 201；代码唯一含已删行（40005）；`@Transactional`
+- [x] 8.5 实现 `PUT /api/courses/{id}`：部分更新 `name`/`credit`；至少一个字段；课程不存在 40004；`@Transactional`
+- [x] 8.6 实现 `POST /api/courses/{id}/teachers`：分配教师；幂等；课程/教师不存在 40004；`@Transactional`
+- [x] 8.7 实现 `DELETE /api/courses/{id}/teachers/{teacherId}`：移除关联；course 级 grade 存在则 40006；课程/关联不存在 40004；`@Transactional`
+- [x] 8.8 实现 `DELETE /api/courses/{id}`：逻辑删除；有 grade 则 40006；课程不存在 40004；`@Transactional`
+- [x] 8.9（**optional，不阻塞 MVP**）补充 `CourseServiceImpl` 单元测试：40004/40005/40006、分配幂等、列表/my 权限 403
 
 ## 9. 成绩管理（grade-management）
 
@@ -100,5 +104,5 @@
 - [ ] 10.1 为所有 Controller 接口补充 Knife4j 注解（`@Operation`、`@Tag`），验证 `/doc.html` 文档完整
 - [ ] 10.2 用 Postman 或 Knife4j 逐一测试认证流程：登录 → 获取 Token → 访问受保护接口 → Token 过期 → 刷新
 - [ ] 10.3 验证角色权限边界：学生无法访问管理接口；教师无法操作他人课程成绩；教师无法调用教师列表/创建/更新/删除接口；教师无法查看他人教师详情（403）
-- [ ] 10.4 验证所有业务校验均返回正确错误码：重复学号/工号（40005）、删除有关联数据（40006，含学生成绩与教师课程关联）、禁用用户创建档案（40004「用户不存在」）、教师 `courseNames` 无关联时返回 `[]`
+- [ ] 10.4 验证所有业务校验均返回正确错误码：重复学号/工号/课程代码（40005）、删除有关联数据（40006，含学生成绩、教师课程关联、课程成绩与移除教师）、禁用用户创建档案（40004「用户不存在」）、教师 `courseNames` 无关联时返回 `[]`、课程列表 `teacherNames` 无关联时返回 `[]`
 - [ ] 10.5 搭建 Vue 3 + Element Plus 前端基础框架，实现登录页与路由守卫（验证前后端联调）

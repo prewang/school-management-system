@@ -377,6 +377,51 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 
 ---
 
+### 决策 15：课程管理模块约定
+
+**权限范围**：
+- 列表 `GET /api/courses`：仅 `ADMIN` / `SUPER_ADMIN`；支持分页与 `keyword`（匹配 `course.name`）。
+- 教师我的课程 `GET /api/courses/my`：仅 `TEACHER`；同样支持 `keyword`。
+- 创建/更新/删除/分配/移除：仅 `ADMIN` / `SUPER_ADMIN`。
+- MVP **不提供** `GET /api/courses/{id}` 详情接口。
+
+**响应字段**：
+- `CoursePageResponse`：`id, name, code, credit, teacherNames`（`List<String>`，无关联时 `[]`）。
+- `CourseResponse`：`id, name, code, credit, createTime`（创建/更新返回用；不含 teacherNames）。
+- `GET /api/courses/my` 复用 `PageResult<CoursePageResponse>`，列表项字段与 `GET /api/courses` 一致；`teacherNames` 为该课程**全量**关联教师姓名（非仅当前教师）。
+
+**teacherNames 排序**：
+- 按 `teacher.id` 升序稳定排列（与 `TeacherMapper.selectCourseNamesByTeacherId` 按 `course.id` 排序的惯例对称）。
+
+**资源不存在（40004）**：
+- 课程不存在或已软删除：更新、删除、分配教师时 → 40004「资源不存在」。
+- 移除教师时：课程不存在、已软删除，或 course_teacher 关联不存在 → 40004「资源不存在」。
+- 与 teacher/student 模块一致，不以 403 伪装资源不存在（防止 ID 枚举）。
+
+**创建校验**：
+- 课程代码全局唯一；`countByCode` 统计含已软删行（40005「课程代码已存在」）。
+
+**更新语义**：
+- `PUT /api/courses/{id}` 部分更新，仅 `name`/`credit`；至少一个非 null；`code` 不可改。
+
+**删除与关联**：
+- 删除课程：检查 `grade` 按 `course_id`；有则 40006「该课程已有成绩数据，无法删除」；仅逻辑删除 `course`，不级联删除 `course_teacher`。
+- 移除教师：同样按 `course_id` 检查 `grade`；有则 40006，消息「该课程已有成绩数据，无法移除教师关联」。
+- 分配教师：幂等；课程或教师不存在/已软删 → 40004「资源不存在」。
+
+**中间表**：
+- `CourseTeacher` 含 `createTime`，`@TableField(fill = INSERT)`；不继承 `BaseEntity`，不做软删除。
+
+**跨模块依赖**：
+- 分配教师需有效 `teacher` 档案（teacher-management）；成绩检查仅需 `GradeMapper`，不硬依赖 grade-management API 完成。
+- E2E 造数：先 `POST /api/courses` + `POST /api/courses/{id}/teachers` 或手工插表。
+- E2E 验证移除/删除 40006：可手工向 `grade` 表插入测试数据，或待 grade-management §9.2 完成后联调。
+
+**验收与测试**：
+- MVP 须满足 tasks.md §8 手工验收项；**8.9 单元测试 optional，不阻塞 MVP 合并**；建议 `CourseServiceImpl` 单元测试（见 tasks 8.9）。
+
+---
+
 ### 决策 13：MyBatis-Plus 3.5.9 分页依赖
 
 自 MyBatis-Plus 3.5.9 起，分页插件拆分为独立模块，项目须同时引入：
@@ -414,3 +459,5 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 - ~~学生 PUT 全量还是部分更新？~~ → 已解决，见决策 12：部分更新，与 user-management 全量 PUT 区分
 - ~~教师管理权限、keyword 匹配、软删除复用、courseNames 空值语义？~~ → 已解决，见决策 14
 - ~~删除教师是否级联 sys_user？详情 403 vs 40004？模块测试 scope？~~ → 已解决，见决策 14（删除不级联、详情存在性判定、验收与测试）
+- ~~课程模块权限、更新语义、软删代码复用、移除教师成绩检查？~~ → 已解决，见决策 15
+- ~~课程资源不存在错误码、/my 响应 DTO、teacherNames 排序、8.9 是否阻塞 MVP、E2E grade 造数？~~ → 已解决，见决策 15（40004 统一、复用 CoursePageResponse、teacher.id 升序、8.9 optional、grade 手工插或等 §9.2）

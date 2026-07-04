@@ -1,14 +1,11 @@
-package com.school.dto.course;
+package com.school.mapper.row;
 
 import lombok.Data;
 
-import java.util.List;
-
 @Data
-public class CoursePageResponse {
+public class CourseListRow {
     private Long id;
     private String name;
     private String code;
     private Integer credit;
-    private List<String> teacherNames;
 }
