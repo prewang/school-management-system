@@ -483,7 +483,8 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 - `POST /api/classes` 返回 HTTP **201**。
 
 **软删除与唯一约束**：
-- `countByNameAndYear` 统计**含已软删行**（与决策 14 工号、决策 15 课程代码策略一致）；MVP 阶段软删除后同年份班级名称不可复用。
+- `countByNameAndYear` 仅统计**未软删行**（`deleted = 0`）；软删除后同年份班级名称**可复用**。
+- 与决策 14（工号）、决策 15（课程代码）不同：`class` 表无 `(name, year)` 数据库 UNIQUE 约束，且班级删除后允许同名重建更符合业务预期。
 - 更新时通过 `excludeId` 排除自身后做唯一性校验。
 
 **更新语义**：

@@ -19,7 +19,7 @@ public interface SchoolClassMapper extends BaseMapper<SchoolClass> {
 
     List<ClassStudentRow> selectStudentsByClassId(@Param("classId") Long classId);
 
-    /** Counts all rows including soft-deleted (same-year name uniqueness is not scoped by deleted). */
+    /** Counts active rows only; soft-deleted classes do not block same-year name reuse. */
     int countByNameAndYear(@Param("name") String name,
                            @Param("year") Integer year,
                            @Param("excludeId") Long excludeId);

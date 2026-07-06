@@ -49,6 +49,24 @@ class SchoolClassServiceImplTest {
     }
 
     @Test
+    void create_afterSoftDeletedSameName_succeeds() {
+        SchoolClassCreateRequest request = validCreateRequest();
+        when(schoolClassMapper.countByNameAndYear("高一(1)班", 2024, null)).thenReturn(0);
+
+        doAnswer(invocation -> {
+            SchoolClass c = invocation.getArgument(0);
+            c.setId(5L);
+            c.setCreateTime(LocalDateTime.of(2024, 9, 1, 0, 0));
+            return 1;
+        }).when(schoolClassMapper).insert(any(SchoolClass.class));
+
+        var response = schoolClassService.create(request);
+
+        assertEquals(5L, response.getId());
+        verify(schoolClassMapper).insert(any(SchoolClass.class));
+    }
+
+    @Test
     void create_success_returnsResponseWithEmptyStudents() {
         SchoolClassCreateRequest request = validCreateRequest();
         when(schoolClassMapper.countByNameAndYear("高一(1)班", 2024, null)).thenReturn(0);

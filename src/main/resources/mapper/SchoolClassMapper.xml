@@ -34,7 +34,7 @@
 
     <select id="countByNameAndYear" resultType="int">
         SELECT COUNT(1) FROM `class`
-        WHERE name = #{name} AND year = #{year}
+        WHERE name = #{name} AND year = #{year} AND deleted = 0
         <if test="excludeId != null">
             AND id != #{excludeId}
         </if>
