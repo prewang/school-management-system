@@ -9,8 +9,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 @Tag(name = "班级管理")
 @RestController
@@ -22,6 +24,7 @@ public class SchoolClassController {
 
     @Operation(summary = "创建班级")
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
     public Result<SchoolClassResponse> create(@Valid @RequestBody SchoolClassCreateRequest request) {
         return Result.success(schoolClassService.create(request));
@@ -29,14 +32,17 @@ public class SchoolClassController {
 
     @Operation(summary = "获取班级详情")
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
     public Result<SchoolClassResponse> getById(@PathVariable Long id) {
         return Result.success(schoolClassService.getById(id));
     }
 
     @Operation(summary = "分页查询班级")
     @GetMapping
-    public Result<PageResult<SchoolClassPageResponse>> page(@Valid PageRequest pageRequest) {
-        return Result.success(schoolClassService.page(pageRequest));
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN') or hasRole('TEACHER')")
+    public Result<PageResult<SchoolClassPageResponse>> page(@Valid PageRequest pageRequest,
+                                                            @RequestParam(required = false) Integer year) {
+        return Result.success(schoolClassService.page(pageRequest, year));
     }
 
     @Operation(summary = "更新班级")

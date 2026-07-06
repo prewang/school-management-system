@@ -45,11 +45,11 @@
 ## 5. 班级管理（class-management）
 
 - [x] 5.1 创建 `ClassEntity`、`ClassMapper`、`ClassService`
-- [ ] 5.2 实现 `GET /api/classes`：查询班级列表，含每班学生数（子查询或 LEFT JOIN）
-- [ ] 5.3 实现 `POST /api/classes`：创建班级，同年份名称唯一性校验
-- [ ] 5.4 实现 `GET /api/classes/{id}`：查询班级详情，含学生列表
-- [ ] 5.5 实现 `PUT /api/classes/{id}`：更新班级信息
-- [ ] 5.6 实现 `DELETE /api/classes/{id}`：逻辑删除，有学生时拒绝
+- [x] 5.2 实现 `GET /api/classes`：查询班级列表，含每班学生数（子查询或 LEFT JOIN）
+- [x] 5.3 实现 `POST /api/classes`：创建班级，同年份名称唯一性校验
+- [x] 5.4 实现 `GET /api/classes/{id}`：查询班级详情，含学生列表
+- [x] 5.5 实现 `PUT /api/classes/{id}`：更新班级信息
+- [x] 5.6 实现 `DELETE /api/classes/{id}`：逻辑删除，有学生时拒绝
 
 ## 6. 教师管理（teacher-management）
 

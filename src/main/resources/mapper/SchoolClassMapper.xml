@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.school.mapper.SchoolClassMapper">
+
+    <select id="selectSchoolClassPage" resultType="com.school.mapper.row.SchoolClassListRow">
+        SELECT
+            c.id,
+            c.name,
+            c.grade,
+            c.year,
+            (SELECT COUNT(1)
+             FROM student s
+             WHERE s.class_id = c.id AND s.deleted = 0) AS studentCount
+        FROM `class` c
+        WHERE c.deleted = 0
+        <if test="year != null">
+            AND c.year = #{year}
+        </if>
+        ORDER BY c.id DESC
+    </select>
+
+    <select id="selectStudentsByClassId" resultType="com.school.mapper.row.ClassStudentRow">
+        SELECT
+            s.id,
+            s.student_no AS studentNo,
+            u.real_name AS realName,
+            s.gender
+        FROM student s
+        INNER JOIN sys_user u ON s.user_id = u.id AND u.deleted = 0
+        WHERE s.deleted = 0
+          AND s.class_id = #{classId}
+        ORDER BY s.id
+    </select>
+
+    <select id="countByNameAndYear" resultType="int">
+        SELECT COUNT(1) FROM `class`
+        WHERE name = #{name} AND year = #{year}
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+</mapper>

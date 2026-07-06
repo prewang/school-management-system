@@ -10,7 +10,7 @@ import com.school.dto.schoolclass.SchoolClassUpdateRequest;
 public interface SchoolClassService {
     SchoolClassResponse create(SchoolClassCreateRequest request);
     SchoolClassResponse getById(Long id);
-    PageResult<SchoolClassPageResponse> page(PageRequest pageRequest);
+    PageResult<SchoolClassPageResponse> page(PageRequest pageRequest, Integer year);
     SchoolClassResponse update(Long id, SchoolClassUpdateRequest request);
     void delete(Long id);
 }

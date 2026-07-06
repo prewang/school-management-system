@@ -293,7 +293,7 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 | 用户管理 | `/api/users` | `GET /api/users`、`POST /api/users`、`PUT /api/users/{id}`、`DELETE /api/users/{id}`、`PUT /api/users/me/password` |
 | 学生管理 | `/api/students` | `GET /api/students`、`POST /api/students`、`GET /api/students/{id}`、`PUT /api/students/{id}`、`DELETE /api/students/{id}` |
 | 教师管理 | `/api/teachers` | `GET /api/teachers`、`POST /api/teachers`、`GET /api/teachers/{id}`（详情：管理员查任意，教师仅查自己，见决策 14）、`PUT /api/teachers/{id}`、`DELETE /api/teachers/{id}` |
-| 班级管理 | `/api/classes` | `GET /api/classes`、`POST /api/classes`、`GET /api/classes/{id}`、`PUT /api/classes/{id}`、`DELETE /api/classes/{id}` |
+| 班级管理 | `/api/classes` | `GET /api/classes`（列表：管理员与教师，见决策 17）、`POST /api/classes`、`GET /api/classes/{id}`（详情：仅管理员）、`PUT /api/classes/{id}`、`DELETE /api/classes/{id}` |
 | 课程管理 | `/api/courses` | `GET /api/courses`、`GET /api/courses/my`、`POST /api/courses`、`PUT /api/courses/{id}`、`DELETE /api/courses/{id}`、`POST /api/courses/{id}/teachers`、`DELETE /api/courses/{id}/teachers/{teacherId}` |
 | 成绩管理 | `/api/grades` | `GET /api/grades`、`GET /api/grades/my`、`POST /api/grades`、`PUT /api/grades/{id}` |
 
@@ -326,8 +326,8 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 - 删除学生前检查 `grade` 表是否存在关联记录；有则返回 40006「该学生存在成绩记录，无法删除」（与课程/教师删除约束一致）。
 
 **跨模块依赖**：
-- 实现 `classId` 校验仅需 `SchoolClassMapper.selectById`（班级 Entity/Mapper 已存在），**不硬依赖** class-management 5.2–5.6 完成。
-- E2E 联调造班级测试数据时，建议先完成 class-management 5.3（`POST /api/classes`）或手工插入 `class` 表。
+- 实现 `classId` 校验仅需 `SchoolClassMapper.selectById`（班级须未软删）；见决策 17。
+- E2E 联调造班级测试数据：`POST /api/classes` 或手工插入 `class` 表。
 
 **响应字段**：
 - `StudentResponse`：`id, userId, studentNo, realName, gender, birthDate, classId, className, createTime`
@@ -461,12 +461,61 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 **跨模块依赖**：
 - 课程归属校验需 `CourseTeacherMapper`、`TeacherMapper`（解析当前用户 → `teacher.id`）。
 - 学生「我的成绩」需 `StudentMapper`（`user_id` → `student.id`）。
-- `classId` 过滤仅需 `student.class_id` JOIN，软依赖 `SchoolClassMapper`（§5.1 已存在），不硬依赖 class-management 5.2–5.6。
+- `classId` 过滤仅需 `student.class_id` JOIN，软依赖 `SchoolClassMapper`；见决策 17。
 - E2E 造数：`POST /api/users` → `POST /api/students` + `POST /api/teachers` + `POST /api/courses` + `POST /api/courses/{id}/teachers` → 再测成绩接口。
 
 **验收与测试**：
 - MVP 须满足 `tasks.md` §9 与 §10.3、§10.4 成绩相关验收项。
 - **9.7 单元测试 optional，不阻塞 MVP 合并**；建议 `GradeServiceImpl` 单元测试覆盖录入/修改归属 403、分数越界、重复录入、`/my` 仅本人、`GET /grades` 角色过滤。
+
+---
+
+### 决策 17：班级管理模块约定
+
+**权限范围**：
+- 列表 `GET /api/classes`：`ADMIN` / `SUPER_ADMIN` / `TEACHER`；支持分页与可选 `year`（入学年份）过滤。
+- 详情 `GET /api/classes/{id}`：仅 `ADMIN` / `SUPER_ADMIN`。
+- 创建、更新、删除：仅 `ADMIN` / `SUPER_ADMIN`（Controller 层 `@PreAuthorize`）。
+
+**创建校验**：
+- `name`、`grade`、`year` 必填（`SchoolClassCreateRequest` Bean Validation）。
+- 同一年份内 `name` 唯一：重复返回 40005「该年份下班级名称已存在」。
+- `POST /api/classes` 返回 HTTP **201**。
+
+**软删除与唯一约束**：
+- `countByNameAndYear` 统计**含已软删行**（与决策 14 工号、决策 15 课程代码策略一致）；MVP 阶段软删除后同年份班级名称不可复用。
+- 更新时通过 `excludeId` 排除自身后做唯一性校验。
+
+**更新语义**：
+- `PUT /api/classes/{id}` 采用**部分更新**（仅更新请求体中非 null 字段），与 `PUT /api/students/{id}` 语义一致。
+- 可更新字段：`name`、`grade`、`year`；至少传入一个，否则 40000「参数校验失败」。
+- 当 `name` / `grade` 出现在请求体中时，须满足 `@Size(min = 1)`（禁止空字符串）；`year` 可为任意有效整数（与创建一致，无额外范围校验）。
+
+**删除约束**：
+- 删除前检查 `student` 表是否存在未软删除且 `class_id` 指向该班级的记录；有则返回 40006「该班级下仍有学生，请先转移学生」。
+- 仅逻辑删除 `class` 表记录，不级联删除或转移学生。
+
+**资源不存在（40004）**：
+- 班级不存在或已软删除：详情、更新、删除时 → 40004「资源不存在」。
+
+**列表与详情数据**：
+- 列表 `studentCount`：XML 子查询统计未软删学生数；无学生时为 `0`。
+- 详情 `students`：JOIN `student` + `sys_user` 取 `realName`；按 `student.id` 升序；无学生时返回 `[]`。
+- 创建/更新返回的 `SchoolClassResponse` 中 `students` 固定为 `[]`（与详情字段对齐，不使用 `null`）。
+
+**响应字段**：
+- `SchoolClassResponse`：`id, name, grade, year, createTime, students`（`students` 为 `List<ClassStudentItem>`；创建/更新/无学生详情均为 `[]`）。
+- `SchoolClassPageResponse`：`id, name, grade, year, studentCount`。
+- `ClassStudentItem`（详情嵌套）：`id, studentNo, realName, gender`（`realName` 来自 `sys_user.real_name`）。
+
+**跨模块依赖**：
+- 学生模块 `classId` 校验仅需 `SchoolClassMapper.selectById`（班级须未软删）；见决策 12。
+- 成绩模块管理员 `classId` 过滤通过 `student.class_id` JOIN，软依赖 `SchoolClassMapper`；见决策 16。
+- E2E 联调造班级数据：`POST /api/classes` 或手工插入 `class` 表。
+
+**验收与测试**：
+- MVP 须满足 `tasks.md` §5 与 §10.3、§10.4 班级相关验收项。
+- 已补充 `SchoolClassServiceImpl` 单元测试，覆盖创建/更新重名 40005、更新空体 40000、详情/删除 40004、删除有学生 40006、`students` 空列表语义。
 
 ---
 
@@ -510,3 +559,4 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 - ~~课程模块权限、更新语义、软删代码复用、移除教师成绩检查？~~ → 已解决，见决策 15
 - ~~课程资源不存在错误码、/my 响应 DTO、teacherNames 排序、8.9 是否阻塞 MVP、E2E grade 造数？~~ → 已解决，见决策 15（40004 统一、复用 CoursePageResponse、teacher.id 升序、8.9 optional、grade 手工插或等 §9.3）
 - ~~成绩模块权限边界、分页、小数位、classId 过滤、403 文案、是否提供删除接口？~~ → 已解决，见决策 16（仅教师录入/修改、/my 与列表均分页、最多两位小数、classId 仅管理员、BusinessException 自定义 403 消息、MVP 无 DELETE/GET-by-id）
+- ~~班级管理权限、同年份名称唯一、软删语义、详情学生列表、删除有关联学生？~~ → 已解决，见决策 17
