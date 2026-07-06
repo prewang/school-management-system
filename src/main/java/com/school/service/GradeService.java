@@ -8,9 +8,13 @@ import com.school.dto.grade.GradeResponse;
 import com.school.dto.grade.GradeUpdateRequest;
 
 public interface GradeService {
+
     GradeResponse create(GradeCreateRequest request);
-    GradeResponse getById(Long id);
-    PageResult<GradePageResponse> page(PageRequest pageRequest, Long studentId, Long courseId);
+
+    PageResult<GradePageResponse> pageMy(PageRequest pageRequest, String semester);
+
+    PageResult<GradePageResponse> page(PageRequest pageRequest, Long studentId, Long courseId,
+                                       Long classId, String semester);
+
     GradeResponse update(Long id, GradeUpdateRequest request);
-    void delete(Long id);
 }

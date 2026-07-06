@@ -415,10 +415,58 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 **跨模块依赖**：
 - 分配教师需有效 `teacher` 档案（teacher-management）；成绩检查仅需 `GradeMapper`，不硬依赖 grade-management API 完成。
 - E2E 造数：先 `POST /api/courses` + `POST /api/courses/{id}/teachers` 或手工插表。
-- E2E 验证移除/删除 40006：可手工向 `grade` 表插入测试数据，或待 grade-management §9.2 完成后联调。
+- E2E 验证移除/删除 40006：可手工向 `grade` 表插入测试数据，或待 grade-management §9.3 完成后联调。
 
 **验收与测试**：
 - MVP 须满足 tasks.md §8 手工验收项；**8.9 单元测试 optional，不阻塞 MVP 合并**；建议 `CourseServiceImpl` 单元测试（见 tasks 8.9）。
+
+---
+
+### 决策 16：成绩管理模块约定
+
+**接口范围（MVP）**：
+- 提供：`GET /api/grades`、`GET /api/grades/my`、`POST /api/grades`、`PUT /api/grades/{id}`。
+- **不提供**：`GET /api/grades/{id}` 详情、`DELETE /api/grades/{id}` 删除（MVP 无需求，后续如需再开 Change）。
+
+**权限范围**：
+- `POST /api/grades`、`PUT /api/grades/{id}`：仅 `TEACHER`（Controller `@PreAuthorize`）；管理员不得代为录入/修改成绩。
+- `GET /api/grades/my`：仅 `STUDENT`。
+- `GET /api/grades`：`ADMIN` / `SUPER_ADMIN` 可查任意；`TEACHER` 仅可查本人负责课程（须传 `courseId`）；`STUDENT` 返回 403。
+
+**课程归属校验**：
+- 教师录入/修改/按课程查询时，须在 Service 层校验 `course_teacher` 关联（`teacher_id` = 当前教师档案 ID），**不能只依赖角色判断**（见 Risks「成绩录入权限边界」）。
+- 无权操作课程成绩时，抛出 `BusinessException(ErrorCode.FORBIDDEN, "无权操作该课程成绩")`（HTTP 403）；**禁止**使用 `AccessDeniedException`（`GlobalExceptionHandler` 会吞掉自定义消息）。
+
+**创建校验**：
+- `studentId` 对应未删除的 `student` 档案；`courseId` 对应未删除的 `course`；否则 40004「资源不存在」。
+- 分数范围 0.00~100.00（最多两位小数，与 `DECIMAL(5,2)` 一致）；越界消息「分数须在 0~100 之间」（DTO `@DecimalMin`/`@DecimalMax` 的 `message` 与之对齐）。
+- 唯一约束 `(student_id, course_id, semester)` 冲突 → 400，消息「该学生本学期此课程成绩已存在，请使用修改接口」（`BusinessException` 自定义消息，非 `DATA_DUPLICATE` 默认文案）。
+
+**更新语义**：
+- `PUT /api/grades/{id}` 仅更新 `score`；`score` 必填非 null。
+- 成绩不存在或已软删除 → 40004「资源不存在」。
+
+**查询过滤**：
+- 全局分页：所有列表接口复用 `PageRequest` / `PageResult`（含 `GET /api/grades/my`）。
+- 管理员 `GET /api/grades`：可选 `studentId`、`courseId`、`classId`、`semester`。
+- 教师 `GET /api/grades`：**必须**传 `courseId`；可选 `semester`；**不得**使用 `classId` 或 `studentId` 参数；未传 `courseId` → 40000「courseId 不能为空」。
+
+**姓名与课程名来源**：
+- 列表 JOIN `course.name`（`courseName`）、`sys_user.real_name`（`studentRealName`）；`student` 表不冗余姓名。
+
+**响应字段**：
+- `GradeResponse`（创建/更新返回）：`id, studentId, courseId, score, semester, createTime`。
+- `GradePageResponse`（列表项）：`id, studentId, studentRealName, courseId, courseName, score, semester`。
+
+**跨模块依赖**：
+- 课程归属校验需 `CourseTeacherMapper`、`TeacherMapper`（解析当前用户 → `teacher.id`）。
+- 学生「我的成绩」需 `StudentMapper`（`user_id` → `student.id`）。
+- `classId` 过滤仅需 `student.class_id` JOIN，软依赖 `SchoolClassMapper`（§5.1 已存在），不硬依赖 class-management 5.2–5.6。
+- E2E 造数：`POST /api/users` → `POST /api/students` + `POST /api/teachers` + `POST /api/courses` + `POST /api/courses/{id}/teachers` → 再测成绩接口。
+
+**验收与测试**：
+- MVP 须满足 `tasks.md` §9 与 §10.3、§10.4 成绩相关验收项。
+- **9.7 单元测试 optional，不阻塞 MVP 合并**；建议 `GradeServiceImpl` 单元测试覆盖录入/修改归属 403、分数越界、重复录入、`/my` 仅本人、`GET /grades` 角色过滤。
 
 ---
 
@@ -460,4 +508,5 @@ Service 层调用 MyBatis-Plus `Page<T>` 查询后，统一转换为 `PageResult
 - ~~教师管理权限、keyword 匹配、软删除复用、courseNames 空值语义？~~ → 已解决，见决策 14
 - ~~删除教师是否级联 sys_user？详情 403 vs 40004？模块测试 scope？~~ → 已解决，见决策 14（删除不级联、详情存在性判定、验收与测试）
 - ~~课程模块权限、更新语义、软删代码复用、移除教师成绩检查？~~ → 已解决，见决策 15
-- ~~课程资源不存在错误码、/my 响应 DTO、teacherNames 排序、8.9 是否阻塞 MVP、E2E grade 造数？~~ → 已解决，见决策 15（40004 统一、复用 CoursePageResponse、teacher.id 升序、8.9 optional、grade 手工插或等 §9.2）
+- ~~课程资源不存在错误码、/my 响应 DTO、teacherNames 排序、8.9 是否阻塞 MVP、E2E grade 造数？~~ → 已解决，见决策 15（40004 统一、复用 CoursePageResponse、teacher.id 升序、8.9 optional、grade 手工插或等 §9.3）
+- ~~成绩模块权限边界、分页、小数位、classId 过滤、403 文案、是否提供删除接口？~~ → 已解决，见决策 16（仅教师录入/修改、/my 与列表均分页、最多两位小数、classId 仅管理员、BusinessException 自定义 403 消息、MVP 无 DELETE/GET-by-id）

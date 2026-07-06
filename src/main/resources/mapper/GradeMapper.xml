@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.school.mapper.GradeMapper">
+
+    <sql id="gradeJoinFrom">
+        FROM grade g
+        INNER JOIN student s ON g.student_id = s.id AND s.deleted = 0
+        INNER JOIN sys_user u ON s.user_id = u.id AND u.deleted = 0
+        INNER JOIN course c ON g.course_id = c.id AND c.deleted = 0
+        WHERE g.deleted = 0
+    </sql>
+
+    <select id="selectGradePage" resultType="com.school.mapper.row.GradeListRow">
+        SELECT
+            g.id,
+            g.student_id AS studentId,
+            u.real_name AS studentRealName,
+            g.course_id AS courseId,
+            c.name AS courseName,
+            g.score,
+            g.semester
+        <include refid="gradeJoinFrom"/>
+        <if test="studentId != null">
+            AND g.student_id = #{studentId}
+        </if>
+        <if test="courseId != null">
+            AND g.course_id = #{courseId}
+        </if>
+        <if test="classId != null">
+            AND s.class_id = #{classId}
+        </if>
+        <if test="semester != null and semester != ''">
+            AND g.semester = #{semester}
+        </if>
+        ORDER BY g.id DESC
+    </select>
+
+    <select id="countByStudentCourseSemester" resultType="int">
+        SELECT COUNT(1)
+        FROM grade
+        WHERE student_id = #{studentId}
+          AND course_id = #{courseId}
+          AND semester = #{semester}
+          AND deleted = 0
+    </select>
+
+    <select id="existsByCourseIdAndTeacherId" resultType="int">
+        SELECT COUNT(1)
+        FROM course_teacher
+        WHERE course_id = #{courseId}
+          AND teacher_id = #{teacherId}
+    </select>
+
+</mapper>

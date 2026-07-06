@@ -93,16 +93,21 @@
 
 ## 9. 成绩管理（grade-management）
 
-- [x] 9.1 创建 `GradeEntity`、`GradeMapper`、`GradeService`
-- [ ] 9.2 实现 `POST /api/grades`：教师录入成绩，校验课程归属、分数范围、唯一性约束
-- [ ] 9.3 实现 `PUT /api/grades/{id}`：教师修改成绩，校验课程归属权限
-- [ ] 9.4 实现 `GET /api/grades/my`：学生查询自己成绩，支持 semester 过滤
-- [ ] 9.5 实现 `GET /api/grades`：管理员/教师查询成绩，支持 studentId、courseId、classId、semester 过滤
+> **依赖说明**：课程归属校验需 `CourseTeacherMapper`、`TeacherMapper`（§6、§8 已完成）；学生「我的成绩」需 `StudentMapper`（§7 已完成）；`classId` 过滤软依赖 `SchoolClassMapper`（§5.1 已存在）。E2E 造数：`POST /api/users` → `POST /api/students` + `POST /api/teachers` + `POST /api/courses` + `POST /api/courses/{id}/teachers`。详见 design 决策 16。
+
+- [x] 9.0 对齐 grade-management 与 Spec/决策 16：移除 `GET /grades/{id}`、`DELETE /grades/{id}`；新增 `GET /grades/my` 路由壳；`POST`/`PUT` 权限改为仅 `TEACHER`；`POST` 加 HTTP 201；`GradeService` 补 `pageMy`、扩展 `page` 参数（`classId`、`semester`）；`GradePageResponse` 补 `courseName`、`studentRealName`；`GradeUpdateRequest.score` 加 `@NotNull`；DTO 分数校验 `message` 对齐「分数须在 0~100 之间」
+- [x] 9.1 创建 `GradeEntity`、`GradeMapper`、`GradeService` 骨架（`GradeServiceImpl` 业务逻辑待 §9.3–9.7 实现）
+- [x] 9.2 编写 `GradeMapper.xml`：分页 JOIN `grade` + `course` + `student` + `sys_user`；动态过滤 `studentId`/`courseId`/`classId`/`semester`；`countByStudentCourseSemester`；`existsByCourseIdAndTeacherId`（查 `course_teacher`）
+- [x] 9.3 实现 `POST /api/grades`：仅 `TEACHER`；校验 `course_teacher` 归属（40301「无权操作该课程成绩」）、`student`/`course` 存在（40004）、分数范围、唯一约束（自定义 400 消息）；`@Transactional`
+- [x] 9.4 实现 `PUT /api/grades/{id}`：仅 `TEACHER`；校验成绩存在（40004）、课程归属（40301）；仅更新 `score`；`@Transactional`
+- [x] 9.5 实现 `GET /api/grades/my`：仅 `STUDENT`；分页 + 可选 `semester`；解析 `student.user_id`；返回 `courseName`；`@Transactional(readOnly = true)`
+- [x] 9.6 实现 `GET /api/grades`：管理员可选 `studentId`/`courseId`/`classId`/`semester`；教师**必须**传 `courseId`（否则 40000）、可选 `semester`、校验归属（40301）；学生 403；`@Transactional(readOnly = true)`
+- [x] 9.7（**optional，不阻塞 MVP**）补充 `GradeServiceImpl` 单元测试：录入/修改归属 403、分数越界 400、重复录入 400、学生 `/my` 仅本人、教师缺 `courseId` 40000、管理员 `classId` 过滤
 
 ## 10. 收尾与验证
 
 - [ ] 10.1 为所有 Controller 接口补充 Knife4j 注解（`@Operation`、`@Tag`），验证 `/doc.html` 文档完整
 - [ ] 10.2 用 Postman 或 Knife4j 逐一测试认证流程：登录 → 获取 Token → 访问受保护接口 → Token 过期 → 刷新
-- [ ] 10.3 验证角色权限边界：学生无法访问管理接口；教师无法操作他人课程成绩；教师无法调用教师列表/创建/更新/删除接口；教师无法查看他人教师详情（403）
-- [ ] 10.4 验证所有业务校验均返回正确错误码：重复学号/工号/课程代码（40005）、删除有关联数据（40006，含学生成绩、教师课程关联、课程成绩与移除教师）、禁用用户创建档案（40004「用户不存在」）、教师 `courseNames` 无关联时返回 `[]`、课程列表 `teacherNames` 无关联时返回 `[]`
+- [ ] 10.3 验证角色权限边界：学生无法访问 `GET /api/grades`（应走 `/my`）；教师无法操作他人课程成绩（录入/修改/查询均 40301「无权操作该课程成绩」）；管理员无法录入/修改成绩（403）；教师无法调用教师列表/创建/更新/删除接口；教师无法查看他人教师详情（403）
+- [ ] 10.4 验证所有业务校验均返回正确错误码：重复学号/工号/课程代码（40005）、删除有关联数据（40006，含学生成绩、教师课程关联、课程成绩与移除教师）、禁用用户创建档案（40004「用户不存在」）、成绩录入学生/课程不存在（40004）、重复成绩录入（自定义 400 消息）、分数越界（「分数须在 0~100 之间」）、教师查成绩缺 `courseId`（40000）、教师 `courseNames` 无关联时返回 `[]`、课程列表 `teacherNames` 无关联时返回 `[]`
 - [ ] 10.5 搭建 Vue 3 + Element Plus 前端基础框架，实现登录页与路由守卫（验证前后端联调）

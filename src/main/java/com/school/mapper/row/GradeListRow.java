@@ -1,11 +1,11 @@
-package com.school.dto.grade;
+package com.school.mapper.row;
 
 import lombok.Data;
 
 import java.math.BigDecimal;
 
 @Data
-public class GradePageResponse {
+public class GradeListRow {
 
     private Long id;
     private Long studentId;

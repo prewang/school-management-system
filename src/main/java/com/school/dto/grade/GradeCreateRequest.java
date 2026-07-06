@@ -15,8 +15,8 @@ public class GradeCreateRequest {
     @NotNull(message = "课程 ID 不能为空")
     private Long courseId;
     @NotNull(message = "成绩不能为空")
-    @DecimalMin(value = "0.00", message = "成绩最小 0")
-    @DecimalMax(value = "100.00", message = "成绩最大 100")
+    @DecimalMin(value = "0.00", message = "分数须在 0~100 之间")
+    @DecimalMax(value = "100.00", message = "分数须在 0~100 之间")
     private BigDecimal score;
     @NotBlank(message = "学期不能为空")
     @Pattern(regexp = "\\d{4}-[12]", message = "学期格式为 YYYY-1 或 YYYY-2")
